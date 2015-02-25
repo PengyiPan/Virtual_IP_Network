@@ -34,75 +34,59 @@ void read_in(){
             *pos = '\0';
         }
         printf("%s\n", line);
-        printf("next line\n");
+        //printf("next line\n");
     }
     
     fclose(fp);
-    //return NULL;
 }
 
-void* user_interface(void* a){
-    //takes care of four user standard inputs
-    bool go = true;
-    char* command = NULL;
-    
-    printf("user interface\n");
-
-    while(go){
-        printf ("Enter user command: ");
-        scanf ("%s", in);
-        
-        //parse in into command and arg for up/down/send
-        printf("command is %s\n", command);
-        
-//        switch (command) {
-//            case "ifconfig":
-//                printf("command is ifconfig : %s\n", command);
-//                break;
-//            case "routes":
-//                printf("command is routes : %s\n", command);
-//                break;
-//            case "up":
-//                printf("command is up : %s\n", command);
-//                break;
-//            case "down":
-//                printf("command is down : %s\n", command);
-//                break;
-//            case "send":
-//                printf("command is send : %s\n", command);
-//                break;
-//            case "killnode":
-//                printf("command is killnode: %s\n", command);
-//                go = false;
-//                break;
-//            default:
-//                printf("Illegal command. Please retry. \n");
-//                break;
-//        }
-        
-        go = false;
-        
-        
-    }
-    
+void* node_interface (void* a){
+    printf("in node interface\n");
+    read_in();
     return NULL;
 }
+
 
 int main(int argc, char* argv[]){
     
     file = argv[1];
+     
+    pthread_t node_thread;
     
-    
-    pthread_t user_interface_thread;
-    
-    if(pthread_create(&user_interface_thread, NULL, user_interface, NULL)) {
+    if(pthread_create(&node_thread, NULL, node_interface, NULL)) {
         fprintf(stderr, "Error creating thread\n");
         return 1;
     }
     
-    read_in();
     
-    //printf("why do i need this\n");
+    char* command = (char*) malloc(sizeof(command));
+
+    while(1){
+        //printf ("Enter user command: ");
+        scanf ("%s", command);
+        
+        printf("command is %s\n", command);
+        
+        /* deal with five possible user std input command
+         * ifconfig, routes, up, down, send
+         *
+         */
+        
+        if (!strcmp(command,"ifconfig")){
+            // config
+        }
+        
+        if (!strcmp(command,"routes")){
+            // print out routes
+        }
+        
+        if (!strcmp(command,"kill")){
+            break;
+        }
+        
+        
+    }
+
     return 0;
     
     
