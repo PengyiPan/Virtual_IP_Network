@@ -59,38 +59,50 @@ void read_in(){
     fclose(fp);
 }
 
+int IP_to_binary(char* ip){
+    //convert IP address to unint32_t
+    int s;
+    uint32_t buf;
+    
+    char* str = (char*) malloc(sizeof(str));
+    
+    printf("     ip address :   %s \n",ip);
+
+    s = inet_pton(AF_INET, ip, &buf);
+    
+    printf("        converted to: %u \n", buf);
+    
+    
+    //inet_ntop(AF_INET, buf, str, INET_ADDRSTRLEN);
+
+    //printf("                    converted back: %s \n", str);
+    return s;
+}
 
 void* node (void* a){
     printf("in node interface\n");
     read_in();
     //create socket
     
-    return NULL;
-}
-
-uint32_t IP_to_binary(char* ip){
-    //convert IP address to unint32_t
-    int s;
-    uint32_t buf;
-    s = inet_pton(AF_INET, ip, &buf);
-    
-    printf("        converted to: %u \n", buf);
-    
-    return s;
-}
-
-
-int main(int argc, char* argv[]){
-    
     
     char* ip = (char*) malloc(sizeof(ip));
-    ip = "0.0.0.0";
-
+    ip = "10.116.89.157";
+    IP_to_binary(ip);
+    ip = "255.0.255.0";
     IP_to_binary(ip);
     
     
-    
-    
+    return NULL;
+}
+
+
+
+
+
+
+
+int main(int argc, char* argv[]){
+
     file = argv[1];
      
     pthread_t node_thread;
@@ -102,7 +114,7 @@ int main(int argc, char* argv[]){
     
     
     char* command = (char*) malloc(sizeof(command));
-
+    
     while(1){
         //printf ("Enter user command: ");
         scanf ("%s", command);
