@@ -43,6 +43,8 @@ void read_in(){
 void* node_interface (void* a){
     printf("in node interface\n");
     read_in();
+    //do things
+    
     return NULL;
 }
 
@@ -65,7 +67,6 @@ int main(int argc, char* argv[]){
         //printf ("Enter user command: ");
         scanf ("%s", command);
         
-        printf("command is %s\n", command);
         
         /* deal with five possible user std input command
          * ifconfig, routes, up, down, send
@@ -74,14 +75,37 @@ int main(int argc, char* argv[]){
         
         if (!strcmp(command,"ifconfig")){
             // config
+            printf("command is %s\n", command);
+
         }
         
-        if (!strcmp(command,"routes")){
+        else if (!strcmp(command,"routes")){
             // print out routes
+            printf("command is %s\n", command);
+
         }
         
-        if (!strcmp(command,"kill")){
+        else if (!strcmp(command,"up")){
+            printf("command is %s\n", command);
+
+        }
+        
+        else if (!strcmp(command,"down")){
+            printf("command is %s\n", command);
+
+        }
+        
+        else if (!strcmp(command,"send")){
+            printf("command is %s\n", command);
+
+        }
+        
+        else if (!strcmp(command,"kill")){
             break;
+        }
+        
+        else {
+            printf("Unrecognized command. Please retry.\n");
         }
         
         
