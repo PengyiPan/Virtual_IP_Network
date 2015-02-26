@@ -10,10 +10,29 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <arpa/inet.h>
 #include "ipsum.h"
 
 char *file;
 FILE *fp;
+
+uint16_t command;
+uint16_t num_entries;
+
+struct entry{
+    uint32_t cost;
+    uint32_t address;
+};
+
+// struct entry entries[num_entries];
+
+struct interface{
+    int my_port;
+    int remote_port;
+    uint32_t my_VIP_address;
+    uint32_t remote_IP_address;
+};
+
 
 void read_in(){
     fp = fopen( file , "rt");
@@ -40,22 +59,43 @@ void read_in(){
     fclose(fp);
 }
 
-void* node_interface (void* a){
+
+void* node (void* a){
     printf("in node interface\n");
     read_in();
-    //do things
+    //create socket
     
     return NULL;
+}
+
+uint32_t IP_to_binary(char* ip){
+    //convert IP address to unint32_t
+    int s;
+    uint32_t buf;
+    s = inet_pton(AF_INET, ip, &buf);
+    
+    printf("        converted to: %u \n", buf);
+    
+    return s;
 }
 
 
 int main(int argc, char* argv[]){
     
+    
+    char* ip = (char*) malloc(sizeof(ip));
+    ip = "0.0.0.0";
+
+    IP_to_binary(ip);
+    
+    
+    
+    
     file = argv[1];
      
     pthread_t node_thread;
     
-    if(pthread_create(&node_thread, NULL, node_interface, NULL)) {
+    if(pthread_create(&node_thread, NULL, node, NULL)) {
         fprintf(stderr, "Error creating thread\n");
         return 1;
     }
@@ -107,6 +147,9 @@ int main(int argc, char* argv[]){
         else {
             printf("Unrecognized command. Please retry.\n");
         }
+        
+        
+        
         
         
     }
