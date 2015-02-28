@@ -53,38 +53,10 @@ vector<interface*> my_interfaces(1);
 
 
 void * serverthread(void * parm);
-int server(uint16_t port);
-int client(const char * addr, uint16_t port);
+int receive_server(uint16_t port);
+int send(const char * addr, uint16_t port);
 
-/*
-int main(int argc, char ** argv)
-{
-    if (argc < 3) {
-        printf("Command should be: myprog s <port> or myprog c <port> <address>\n");
-        return 1;
-    }
-    int port = atoi(argv[2]); //atoi covert string to int
-    if (port < 1024 || port > 65535) {
-        printf("Port number should be equal to or larger than 1024 and smaller than 65535\n");
-        return 1;
-    }
-    if (argv[1][0] == 'c') {
-        if(argv[3]==NULL){
-            printf("NO IP address is given\n");
-            return 1;
-        }
-        return client(argv[3], port);      //open client
-    } else if (argv[1][0] == 's') {
-        return server(port);               //open server
-    } else {
-        printf("unknown command type %s\nCommand should be: myprog s <port> or myprog c <port> <address>", argv[1]);
-        return 1;
-    }
-    return 0;
-}
-*/
-
-int client(const char * addr, uint16_t port)
+int send(const char * addr, uint16_t port)
 {
     int sock;
     struct sockaddr_in server_addr;
@@ -136,7 +108,7 @@ int client(const char * addr, uint16_t port)
     return 0;
 }
 
-int server(uint16_t port){
+int receive_server(uint16_t port){
     /*
      add your code here
      */
@@ -169,15 +141,6 @@ int server(uint16_t port){
     }
     
     listen(sock,5);
-    
-    //    for(;;){
-    //        socklen_t len = sizeof(sin);
-    //        int cfd = accept(sock, (struct sockaddr*)&sin, &len);
-    //        printf("slides received");
-    //        fputs(reply, stdout);
-    //        close(cfd);
-    //    }
-    
     
     //wait for connection, then receive and print msg
     while(1){
@@ -225,9 +188,6 @@ void * serverthread(void * parm){
 }
 
 /*          *****************      from project 0             ****************************        */
-
- 
-
 
 
 void read_in(){
@@ -302,14 +262,12 @@ void read_in(){
 
 	fclose(fp);
 }
-
+/*
 int IP_to_binary(char* ip){
 	//convert IP address to unint32_t
 	int s;
 	uint32_t buf;
-
 	char* str = (char*) malloc(sizeof(str));
-
 	printf("     ip address :   %s \n",ip);
 
 	s = inet_pton(AF_INET, ip, &buf);
@@ -321,16 +279,20 @@ int IP_to_binary(char* ip){
 	//printf("                    converted back: %s \n", str);
 	return s;
 }
-
+*/
 void* node (void* a){
 	printf("in node interface\n");
 //	interface* interfaces = (interface*) malloc(10*sizeof(interface));
 
 	read_in();
-	//create socket
-
-
-
+	//create server that can accept message from different nodes
+    
+    
+    
+    //create client when send message
+    //pull needed info from the interfaces vector te get necessary info for setting up client
+    
+    
 
 
 	return NULL;
