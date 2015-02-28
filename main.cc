@@ -30,7 +30,7 @@ FILE *fp;
 
 uint16_t command;
 uint16_t num_entries;
-
+uint16_t my_port;
 
 
 struct entry{
@@ -41,20 +41,14 @@ struct entry{
 // struct entry entries[num_entries];
 
 struct interface_t{
-	int my_port;
-	int remote_port;
+	uint16_t my_port;
+	uint16_t remote_port;
 	char* my_VIP_addr;
     char* remote_VIP_addr;
 };
 typedef struct interface_t interface;
+
 vector<interface*> my_interfaces(1);
-
-/*          *****************      from project 0             ****************************        */
-
-
-void * serverthread(void * parm);
-int receive_server(uint16_t port);
-int send(const char * addr, uint16_t port);
 
 int send(const char * addr, uint16_t port)
 {
@@ -108,10 +102,31 @@ int send(const char * addr, uint16_t port)
     return 0;
 }
 
+void * serverthread(void * parm){
+    int n;
+    char temp[MAX_MSG_LENGTH], reply[MAX_MSG_LENGTH*3];
+    int len;
+    int cfd;
+    
+    cfd = (int) parm;
+    
+    while(len = recv(cfd, temp, sizeof(temp), 0)){
+        //printf("Here is the message: %s\n",temp);
+        strcpy(reply,temp);
+        strcat(reply,temp);
+        strcat(reply,temp);
+        //printf("Here is the copy: %s\n",reply);
+        
+        n = write(cfd,reply,MAX_MSG_LENGTH*3);
+        
+        
+    }
+    close(cfd);
+    pthread_exit(0);
+    
+}
+
 int receive_server(uint16_t port){
-    /*
-     add your code here
-     */
     
     int sock,cfd;
     int len;
@@ -120,7 +135,6 @@ int receive_server(uint16_t port){
     int n;
     pthread_t  tid;             // thread id
     
-    //build address data structure?
     
     if ((sock = socket(AF_INET, SOCK_STREAM,0)) < 0) {
         perror("Create socket error(server):");
@@ -163,30 +177,6 @@ int receive_server(uint16_t port){
 
 
 
-void * serverthread(void * parm){
-    int n;
-    char temp[MAX_MSG_LENGTH], reply[MAX_MSG_LENGTH*3];
-    int len;
-    int cfd;
-    
-    cfd = (int) parm;
-    
-    while(len = recv(cfd, temp, sizeof(temp), 0)){
-        //printf("Here is the message: %s\n",temp);
-        strcpy(reply,temp);
-        strcat(reply,temp);
-        strcat(reply,temp);
-        //printf("Here is the copy: %s\n",reply);
-        
-        n = write(cfd,reply,MAX_MSG_LENGTH*3);
-        
-        
-    }
-    close(cfd);
-    pthread_exit(0);
-    
-}
-
 /*          *****************      from project 0             ****************************        */
 
 
@@ -204,8 +194,6 @@ void read_in(){
 
 	int my_port;
 	int line_count = 0;
-
-
 
 	while ((read = getline(&line, &len, fp)) != -1) {
 		if (line_count == 0){
@@ -253,8 +241,6 @@ void read_in(){
 
 			my_interfaces.push_back(new_interface);
 
-
-
 		}
 		line_count ++;
 
@@ -287,7 +273,7 @@ void* node (void* a){
 	read_in();
 	//create server that can accept message from different nodes
     
-    
+    receive_server(my_port);
     
     //create client when send message
     //pull needed info from the interfaces vector te get necessary info for setting up client
