@@ -293,9 +293,7 @@ void read_in(){
 
 			my_interfaces.push_back(new_interface);
 
-			//char* ip = (char*) malloc(sizeof(ip));
-			//ip = "10.116.89.157";
-			//IP_to_binary(ip);
+
 
 		}
 		line_count ++;
@@ -319,9 +317,7 @@ int IP_to_binary(char* ip){
 
 	printf("        converted to: %u \n", buf);
 
-
 	//inet_ntop(AF_INET, buf, str, INET_ADDRSTRLEN);
-
 	//printf("                    converted back: %s \n", str);
 	return s;
 }
