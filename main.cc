@@ -41,6 +41,7 @@ struct entry{
 // struct entry entries[num_entries];
 
 struct interface_t{
+    uint16_t unique_id;
 	uint16_t my_port;
 	uint16_t remote_port;
 	char* my_VIP_addr;
@@ -231,10 +232,11 @@ void read_in(){
 
 
 			interface* new_interface = (interface*) malloc(sizeof(interface));
-			new_interface-> my_port = my_port;
-			new_interface-> remote_port = temp_remote_port;
-			new_interface-> my_VIP_addr = temp_my_VIP_addr;
-            new_interface-> remote_VIP_addr = temp_remote_VIP_addr;
+            new_interface -> unique_id = line_count - 1;
+            new_interface -> my_port = my_port;
+			new_interface -> remote_port = temp_remote_port;
+			new_interface -> my_VIP_addr = temp_my_VIP_addr;
+            new_interface -> remote_VIP_addr = temp_remote_VIP_addr;
 
 			printf("remote_port in new interface is: %d \n", new_interface->remote_port);
             printf("remote_VIP in new interface is: %s \n", new_interface->remote_VIP_addr);
@@ -353,9 +355,9 @@ int main(int argc, char* argv[]){
             char* dest_ip = t;
             printf("command is %s, destination ip address: %s \n", t, dest_ip);
             
-            //message?
-            
-
+            t = strtok(NULL, "");
+            printf("message :%s\n", t);
+            char* to_send_msg = t;
 
 		}
 
