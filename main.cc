@@ -271,8 +271,8 @@ void* node (void* a){
 //	interface* interfaces = (interface*) malloc(10*sizeof(interface));
 
 	read_in();
-	//create server that can accept message from different nodes
     
+	//create server that can accept message from different nodes
     receive_server(my_port);
     
     //create client when send message
