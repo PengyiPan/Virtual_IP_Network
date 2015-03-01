@@ -171,7 +171,7 @@ int receive_server(uint16_t port){
             return 1;
         }
         
-        pthread_create(&tid, NULL, serverthread, (void*) cfd );
+        pthread_create(&tid, NULL, serverthread, (void*) &cfd );
         
     }
     close(sock);
