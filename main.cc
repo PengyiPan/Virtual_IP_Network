@@ -17,6 +17,9 @@
 #include <string>
 #include <iostream>
 #include "ipsum.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 //int server(uint16_t port);
 //int client(const char * addr, uint16_t port);
@@ -27,8 +30,7 @@
 
 using namespace std;
 
-char *file;
-FILE *fp;
+char** argv_in;
 
 uint16_t command;
 uint16_t num_entries;
@@ -46,12 +48,14 @@ struct interface_t{
 	uint16_t unique_id;
 	uint16_t my_port;
 	uint16_t remote_port;
-	char* my_VIP_addr;
-    char* remote_VIP_addr;
+	string my_VIP_addr;
+    string remote_VIP_addr;
     int status;
 
 };
 typedef struct interface_t interface;
+
+int ifconfig();
 
 vector<interface*> my_interfaces(0);
 
@@ -184,76 +188,44 @@ int receive_server(uint16_t port){
 
 
 void read_in(){
-	fp = fopen( file , "rt");
-
-	char* line= NULL;
-	size_t len = 0;
-	ssize_t read;
-
-	if (fp == NULL){
-		printf("Opening file error\n");
-		exit(EXIT_FAILURE);
-	}
+	int line_count = 0;
+	ifstream file(argv_in[1]);
+	string line_buffer;
 
 	int my_port;
-	int line_count = 0;
 
-	while ((read = getline(&line, &len, fp)) != -1) {
-		if (line_count == 0){
-			char *pos;
-			if ((pos=strchr(line, '\n')) != NULL){
-				*pos = '\0';
-			}
-			//printf("first line : %s\n", line);
+	while (getline(file, line_buffer)){
+		if (line_buffer.length() == 0)continue;
 
-			char *p;
-			p = strtok(line, ":");
-			//printf("local iP :%s\n", p);
-			p = strtok(NULL, ":");
-			my_port = atoi(p);
+		if(line_count == 0){
+			//my_port = atoi(line_buffer.substr(line_buffer.find(":")).c_str());
+			my_port = atoi(line_buffer.substr(line_buffer.find(":")+1).c_str());
+		}
+		else{
+			int temp_remote_port = atoi(line_buffer.substr(line_buffer.find(":")+1,line_buffer.find(" ")).c_str());
+			line_buffer = line_buffer.substr(line_buffer.find(" ")+1);
 
-		} else {
-			char *pos;
-			if ((pos=strchr(line, '\n')) != NULL){
-				*pos = '\0';
-			}
-			//printf("%s\n", line);
+			string temp_my_VIP_addr = line_buffer.substr(0,line_buffer.find(" "));
+			line_buffer = line_buffer.substr(line_buffer.find(" ")+1);
 
-			char *p;
-			p = strtok(line, " ");
-			p = strtok(NULL, " ");
-			int temp_remote_port = atoi(p);
+			string temp_remote_VIP_addr = line_buffer;
 
-			p = strtok(NULL, " ");
-			//printf("third :%s\n", p);
-			char* temp_my_VIP_addr = p;
-
-			p = strtok(NULL, " ");
-			//printf("fourth :%s\n", p);
-			char* temp_remote_VIP_addr = p;
-
-
-			interface* new_interface = (interface*) malloc(sizeof(interface));
+			interface* new_interface = new interface;
 			new_interface -> unique_id = line_count;
 			new_interface -> my_port = my_port;
 			new_interface -> remote_port = temp_remote_port;
 			new_interface -> my_VIP_addr = temp_my_VIP_addr;
-            new_interface -> remote_VIP_addr = temp_remote_VIP_addr;
-            new_interface -> status = 1;
-
-            printf("new interface my VIP: %s \n", new_interface->my_VIP_addr);
-//			printf("remote_port in new interface is: %d \n", new_interface->remote_port);
-//            printf("remote_VIP in new interface is: %s \n", new_interface->remote_VIP_addr);
-
+			new_interface -> remote_VIP_addr = temp_remote_VIP_addr;
+			new_interface -> status = 1;
 
 			my_interfaces.push_back(new_interface);
 
 		}
+
 		line_count ++;
 
 	}
 
-	fclose(fp);
 }
 
 void* node (void* a){
@@ -286,7 +258,7 @@ int ifconfig(){
 			string down("down");
 			std = down.c_str();
 		}
-		printf("%d %s %s\n",cur->unique_id,cur->my_VIP_addr,std);
+		printf("%d %s %s\n",cur->unique_id,cur->my_VIP_addr.c_str(),std);
 	}
 	return 0;
 }
@@ -297,7 +269,7 @@ int up_interface(int interface_id){
 
 			my_interfaces[i]->status = 1;
 			printf("Interface %d up.\n", my_interfaces[i]->unique_id);
-			return 1;
+			return 0;
 		}
 	}
 	printf("Interface %d not found.\n", interface_id);
@@ -309,6 +281,7 @@ int down_interface(int interface_id){
 		if(my_interfaces[i]->unique_id == interface_id){
 			my_interfaces[i]->status = 0;
 			printf("Interface %d down.\n", my_interfaces[i]->unique_id);
+			return 0;
 		}
 	}
 	printf("Interface %d not found.\n", interface_id);
@@ -318,7 +291,7 @@ int down_interface(int interface_id){
 
 int main(int argc, char* argv[]){
 
-	file = argv[1];
+	argv_in = argv;;
 
 	pthread_t node_thread;
 
@@ -383,10 +356,10 @@ int main(int argc, char* argv[]){
 		}
 
 		else if (!strcmp(t,"send")){
-			printf("command is %s\n", t);
+
 			t = strtok(NULL, " ");
 			char* dest_ip = t;
-			printf("command is %s, destination ip address: %s \n", t, dest_ip);
+			printf("command is send, destination ip address: %s \n", dest_ip);
 
 			t = strtok(NULL, "");
 			printf("message :%s\n", t);
