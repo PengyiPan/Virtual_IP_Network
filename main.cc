@@ -48,7 +48,7 @@ struct interface_t{
 	uint16_t remote_port;
 	char* my_VIP_addr;
     char* remote_VIP_addr;
-    string status;
+    int status;
 };
 typedef struct interface_t interface;
 
@@ -203,7 +203,7 @@ void read_in(){
 			if ((pos=strchr(line, '\n')) != NULL){
 				*pos = '\0';
 			}
-			printf("first line : %s\n", line);
+			//printf("first line : %s\n", line);
 
 			char *p;
 			p = strtok(line, ":");
@@ -216,7 +216,7 @@ void read_in(){
 			if ((pos=strchr(line, '\n')) != NULL){
 				*pos = '\0';
 			}
-			printf("%s\n", line);
+			//printf("%s\n", line);
 
 			char *p;
 			p = strtok(line, " ");
@@ -224,11 +224,11 @@ void read_in(){
 			int temp_remote_port = atoi(p);
 
 			p = strtok(NULL, " ");
-			printf("third :%s\n", p);
+			//printf("third :%s\n", p);
 			char* temp_my_VIP_addr = p;
 
 			p = strtok(NULL, " ");
-			printf("fourth :%s\n", p);
+			//printf("fourth :%s\n", p);
 			char* temp_remote_VIP_addr = p;
 
 
@@ -238,9 +238,11 @@ void read_in(){
 			new_interface -> remote_port = temp_remote_port;
 			new_interface -> my_VIP_addr = temp_my_VIP_addr;
             new_interface -> remote_VIP_addr = temp_remote_VIP_addr;
+            new_interface -> status = 1;
 
-			printf("remote_port in new interface is: %d \n", new_interface->remote_port);
-            printf("remote_VIP in new interface is: %s \n", new_interface->remote_VIP_addr);
+            printf("new interface my VIP: %s \n", new_interface->my_VIP_addr);
+//			printf("remote_port in new interface is: %d \n", new_interface->remote_port);
+//            printf("remote_VIP in new interface is: %s \n", new_interface->remote_VIP_addr);
 
 			my_interfaces.push_back(new_interface);
 
@@ -273,17 +275,24 @@ void* node (void* a){
 
 
 int ifconfig(){
-	for(interface* i: my_interfaces){
-
+	for(int i =0; i< my_interfaces.size();i++){
+		interface* cur = my_interfaces[i];
+		const char* std;
+		if(cur->status){
+			string up("up");
+			std = up.c_str();
+		}else{
+			string down("down");
+			std = down.c_str();
+		}
+		printf("%d %s %s\n",cur->unique_id,cur->my_VIP_addr,std);
 	}
-
-
 	return 0;
 }
 
 int change_status(){
 	for(int i =0; i< my_interfaces.size();i++){
-		my_interfaces
+		//my_interfaces
 	}
 	return 0;
 }
@@ -321,6 +330,7 @@ int main(int argc, char* argv[]){
 		if (!strcmp(t,"ifconfig")){
 			// config
 			printf("command is %s\n", t);
+			ifconfig();
 
 		}
 
@@ -336,9 +346,7 @@ int main(int argc, char* argv[]){
             int up_id = atoi(t);
             printf("command is %s, bringing up interface id: %d \n", t, up_id);
             
-            if(change_status(,t)){
 
-            }
 
 
 		}
