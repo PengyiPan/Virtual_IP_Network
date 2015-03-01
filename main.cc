@@ -232,7 +232,7 @@ void read_in(){
 
 
 			interface* new_interface = (interface*) malloc(sizeof(interface));
-            new_interface -> unique_id = line_count - 1;
+            new_interface -> unique_id = line_count;
             new_interface -> my_port = my_port;
 			new_interface -> remote_port = temp_remote_port;
 			new_interface -> my_VIP_addr = temp_my_VIP_addr;
