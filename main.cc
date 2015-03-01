@@ -252,24 +252,8 @@ void read_in(){
 
 	fclose(fp);
 }
-/*
-int IP_to_binary(char* ip){
-	//convert IP address to unint32_t
-	int s;
-	uint32_t buf;
-	char* str = (char*) malloc(sizeof(str));
-	printf("     ip address :   %s \n",ip);
 
-	s = inet_pton(AF_INET, ip, &buf);
-	//buf = htonl(ip);
 
-	printf("        converted to: %u \n", buf);
-
-	//inet_ntop(AF_INET, buf, str, INET_ADDRSTRLEN);
-	//printf("                    converted back: %s \n", str);
-	return s;
-}
-*/
 void* node (void* a){
 	printf("in node interface\n");
 //	interface* interfaces = (interface*) malloc(10*sizeof(interface));
@@ -289,7 +273,14 @@ void* node (void* a){
 }
 
 
+int ifconfig(){
+	for(interface* i: my_interfaces){
 
+	}
+
+
+	return 0;
+}
 
 
 
