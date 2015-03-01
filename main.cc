@@ -48,6 +48,7 @@ struct interface_t{
 	uint16_t remote_port;
 	char* my_VIP_addr;
     char* remote_VIP_addr;
+    string status;
 };
 typedef struct interface_t interface;
 
@@ -178,8 +179,6 @@ int receive_server(uint16_t port){
     return 0;
 }
 
-
-
 /*          *****************      from project 0             ****************************        */
 
 
@@ -291,7 +290,12 @@ void* node (void* a){
 
 
 
-
+int change_status(){
+	for(int i =0; i< my_interfaces.size();i++){
+		my_interfaces
+	}
+	return 0;
+}
 
 
 int main(int argc, char* argv[]){
@@ -341,6 +345,10 @@ int main(int argc, char* argv[]){
             int up_id = atoi(t);
             printf("command is %s, bringing up interface id: %d \n", t, up_id);
             
+            if(change_status(,t)){
+
+            }
+
 
 		}
 
