@@ -313,35 +313,53 @@ int main(int argc, char* argv[]){
 		 * ifconfig, routes, up, down, send
 		 *
 		 */
+        
+        char *t;
+        t = strtok(command, " ");
 
-		if (!strcmp(command,"ifconfig")){
+		if (!strcmp(t,"ifconfig")){
 			// config
-			printf("command is %s\n", command);
+			printf("command is %s\n", t);
 
 		}
 
-		else if (!strcmp(command,"routes")){
+		else if (!strcmp(t,"routes")){
 			// print out routes
-			printf("command is %s\n", command);
+			printf("command is %s\n", t);
 
 		}
 
-		else if (!strcmp(command,"up")){
-			printf("command is %s\n", command);
+		else if (!strcmp(t,"up")){
+			printf("command is %s\n", t);
+            t = strtok(NULL, " ");
+            int up_id = atoi(t);
+            printf("command is %s, bringing up interface id: %d \n", t, id);
+            
 
 		}
 
-		else if (!strcmp(command,"down")){
-			printf("command is %s\n", command);
+		else if (!strcmp(t,"down")){
+			printf("command is %s\n", t);
+            t = strtok(NULL, " ");
+            int down_id = atoi(t);
+            printf("command is %s, taking down interface id: %d \n", t, id);
+
 
 		}
 
-		else if (!strcmp(command,"send")){
-			printf("command is %s\n", command);
+		else if (!strcmp(t,"send")){
+			printf("command is %s\n", t);
+            t = strtok(NULL, " ");
+            char* dest_ip = t;
+            printf("command is %s, destination ip address: %s \n", t, dest_ip);
+            
+            //message?
+            
+
 
 		}
 
-		else if (!strcmp(command,"kill")){
+		else if (!strcmp(t,"kill")){
 			break;
 		}
 
