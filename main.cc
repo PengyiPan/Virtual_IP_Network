@@ -71,7 +71,7 @@ int send(const char * addr, uint16_t port)
 	}
 
 
-	printf("Socket created\n");
+	printf("Socket created in send\n");
 	server_addr.sin_addr.s_addr = inet_addr(addr);  //sin_addr is struct in_addr
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(port);
@@ -111,23 +111,20 @@ int send(const char * addr, uint16_t port)
 	return 0;
 }
 
-void * serverthread(void * parm){
+void * receive_thread(void * parm){
+	//refresh the forwarding table here and print message to console
+
 	int n;
-	char temp[MAX_MSG_LENGTH], reply[MAX_MSG_LENGTH*3];
+	char temp[65535];
 	int len;
 	int cfd;
 
-	cfd = *(int*) parm; //    cfd = (int) parm;
+	cfd = *(int*) parm;
 
 	while(len = recv(cfd, temp, sizeof(temp), 0)){
-		//printf("Here is the message: %s\n",temp);
-		strcpy(reply,temp);
-		strcat(reply,temp);
-		strcat(reply,temp);
-		//printf("Here is the copy: %s\n",reply);
 
-		n = write(cfd,reply,MAX_MSG_LENGTH*3);
-
+		printf("echo to console: %s\n",temp);
+		memset(temp, 0, sizeof(temp));
 
 	}
 	close(cfd);
@@ -135,7 +132,7 @@ void * serverthread(void * parm){
 
 }
 
-int receive_server(uint16_t port){
+int start_receive(uint16_t port){
 
 	int sock,cfd;
 	int len;
@@ -177,7 +174,7 @@ int receive_server(uint16_t port){
 			return 1;
 		}
 
-		pthread_create(&tid, NULL, serverthread, (void*) &cfd );
+		pthread_create(&tid, NULL, receive_thread, (void*) &cfd );
 
 	}
 	close(sock);
@@ -191,8 +188,6 @@ void read_in(){
 	int line_count = 0;
 	ifstream file(argv_in[1]);
 	string line_buffer;
-
-	int my_port;
 
 	while (getline(file, line_buffer)){
 		if (line_buffer.length() == 0)continue;
@@ -235,7 +230,8 @@ void* node (void* a){
 	read_in();
 
 	//create server that can accept message from different nodes
-	receive_server(my_port);
+
+	start_receive(my_port);
 
 	//create client when send message
 	//pull needed info from the interfaces vector te get necessary info for setting up client
@@ -351,7 +347,6 @@ int main(int argc, char* argv[]){
 				printf("down interface error\n");
 				return 0;
 			}
-
 
 		}
 
