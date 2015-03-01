@@ -111,7 +111,7 @@ void * serverthread(void * parm){
     int len;
     int cfd;
     
-    cfd = (int) parm;
+    cfd = *(int*) parm; //    cfd = (int) parm;
     
     while(len = recv(cfd, temp, sizeof(temp), 0)){
         //printf("Here is the message: %s\n",temp);
