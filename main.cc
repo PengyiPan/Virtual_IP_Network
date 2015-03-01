@@ -14,6 +14,8 @@
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <string>
+#include <iostream>
 #include "ipsum.h"
 
 //int server(uint16_t port);
@@ -49,7 +51,7 @@ struct interface_t{
 };
 typedef struct interface_t interface;
 
-vector<interface*> my_interfaces(1);
+vector<interface*> my_interfaces(0);
 
 int send(const char * addr, uint16_t port)
 {
@@ -169,7 +171,7 @@ int receive_server(uint16_t port){
             return 1;
         }
         
-        pthread_create(&tid, NULL, serverthread, (void *) cfd );
+        pthread_create(&tid, NULL, serverthread, (void*) cfd );
         
     }
     close(sock);
@@ -306,15 +308,17 @@ int main(int argc, char* argv[]){
 
 	char* command = (char*) malloc(sizeof(command));
 
+	string mystr;
+
 	while(1){
 		//printf ("Enter user command: ");
-		scanf ("%s", command);
+		//scanf ("%s", command);
+		getline (cin, mystr);
 
+		std::vector<char> writable(mystr.begin(), mystr.end());
+		writable.push_back('\0');
 
-		/* deal with five possible user std input command
-		 * ifconfig, routes, up, down, send
-		 *
-		 */
+		command = &writable[0];
         
         char *t;
         t = strtok(command, " ");
@@ -335,7 +339,7 @@ int main(int argc, char* argv[]){
 			printf("command is %s\n", t);
             t = strtok(NULL, " ");
             int up_id = atoi(t);
-            printf("command is %s, bringing up interface id: %d \n", t, id);
+            printf("command is %s, bringing up interface id: %d \n", t, up_id);
             
 
 		}
@@ -344,7 +348,7 @@ int main(int argc, char* argv[]){
 			printf("command is %s\n", t);
             t = strtok(NULL, " ");
             int down_id = atoi(t);
-            printf("command is %s, taking down interface id: %d \n", t, id);
+            printf("command is %s, taking down interface id: %d \n", t, down_id);
 
 
 		}
@@ -358,6 +362,10 @@ int main(int argc, char* argv[]){
             t = strtok(NULL, "");
             printf("message :%s\n", t);
             char* to_send_msg = t;
+            // find the corresponding interface
+
+            // create client socket with dest_ip
+
 
 		}
 
