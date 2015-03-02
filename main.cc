@@ -52,7 +52,6 @@ struct interface_t{
 	string my_VIP_addr;
     string remote_VIP_addr;
     int status;
-    int socket;
 
 };
 typedef struct interface_t interface;
@@ -80,8 +79,16 @@ int send(char* des_VIP_addr,char* mes_to_send)
 	long LocalHostAddress;
 	memcpy( &LocalHostAddress, pLocalHostInfo->h_addr, pLocalHostInfo->h_length );
 
-	servaddr.sin_port = htons(17001);
-	string loc("127.0.0.1");
+	if(!strcmp(des_VIP_addr,"10.10.168.73")){ //sending from A
+		servaddr.sin_port = htons(17001);
+	}
+	else if(!strcmp(des_VIP_addr,"14.230.5.36")){//B forwarding to C
+		servaddr.sin_port = htons(17002);
+	}
+	else{
+		printf("No port to send in else\n");
+	}
+
 	servaddr.sin_addr.s_addr = LocalHostAddress;
 
 	//===HARD CODE END===
@@ -95,7 +102,7 @@ int send(char* des_VIP_addr,char* mes_to_send)
 	return 0;
 }
 
-int refresh_connection(){
+int update_forwarding_table(){
 
 
 	return 0;
@@ -137,7 +144,15 @@ int start_receive_service(uint16_t port){
 			printf("received %d bytes\n", recvlen);
 			if (recvlen > 0) {
 				buf[recvlen] = 0;
-				printf("received message: \"%s\"\n", buf);
+				//HARD CODE============================
+				if(my_port==170001){ //receiving from A
+						string tmp("14.230.5.36");
+						send((char*)tmp.c_str(),(char*)&buf);
+					}
+				else{
+					printf("received message: %s\n", buf);
+				}
+				//HARD CODE====================
 			}
 	}
 
@@ -197,7 +212,7 @@ void* node (void* a){
 
 	start_receive_service(my_port);
 
-	refresh_connection();
+	update_forwarding_table();
 
 	//create client when send message
 	//pull needed info from the interfaces vector te get necessary info for setting up client
