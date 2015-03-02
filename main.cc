@@ -115,7 +115,19 @@ int update_forwarding_table(){
 }
 
 int send_rip_response(){
+	//send stuff in your forwarding table to your neighbors every five seconds
+	while(1){
+		for (int i = 0; i< forwarding_table.size();i++){
+			FTE* cur = my_forwarding_table[i];
 
+
+		}
+
+
+
+		sleep(5);
+		printf("wake up")
+	}
 }
 
 void* clean_forwarding_table(void* a){
@@ -148,7 +160,6 @@ void* clean_forwarding_table(void* a){
 	}
 	return NULL;
 }
-
 
 
 void* start_receive_service(void* a){
@@ -263,7 +274,6 @@ void* node (void* a){
 	pthread_t receive_service_thread;
 
 
-
 	//read the input file
 	read_in();
 
@@ -273,8 +283,6 @@ void* node (void* a){
 		fprintf(stderr, "Error creating clean forwarding table thread\n");
 		return NULL;
 	}
-
-
 
 	//create client when send message
 
