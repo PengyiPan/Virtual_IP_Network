@@ -15,6 +15,7 @@
 #include <netdb.h>
 #include <sys/types.h>
 #include <time.h>
+#include <netinet/ip.h>
 
 //int server(uint16_t port);
 //int client(const char * addr, uint16_t port);
@@ -57,6 +58,27 @@ struct forwarding_table_entry{
 	time_t time_last_updated;//time_to_live;
 };
 typedef struct forwarding_table_entry FTE;
+
+/*The packet that will be encapsulated in IP packet as payload*/
+
+struct RIP_packet{
+	uint16_t command;
+	uint16_t num_entries;
+	struct{
+		uint32_t cost;
+		uint32_t address;
+	} entries[num_entries];
+};
+
+/*The packet that we send using UDP as the link layer*/
+
+struct IP_packet {
+	struct ip ip_header;
+	struct RIP_packet rip_packet;
+	char* msg;
+};
+
+
 
 int ifconfig();
 
@@ -103,6 +125,10 @@ int send(char* des_VIP_addr,char* mes_to_send)
 
 
 	return 0;
+}
+
+void handle_packet(IP_packet* packet_in){
+
 }
 
 int update_forwarding_table(){
@@ -192,26 +218,19 @@ void* start_receive_service(void* a){
 
 	/* now loop, receiving data and printing what we received */
 	while (1) {
-		printf("waiting on port %d\n", my_port);
-		recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-		printf("received %d bytes\n", recvlen);
-		if (recvlen > 0) {
-			buf[recvlen] = 0;
-			//HARD CODE============================
-			if(my_port==17001){ //receiving from A
-				string tmp("14.230.5.36");
-				send((char*)tmp.c_str(),(char*)&buf);
+			printf("waiting on port %d\n", my_port);
+			recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+			printf("received %d bytes\n", recvlen);
+			if (recvlen > 0) {
+				buf[recvlen] = 0;
+
+				handle_packet((IP_packet*)&buf);
+
 			}
-			else{
-				printf("received message: %s\n", buf);
-			}
-			//HARD CODE====================
 		}
-	}
-
 	return NULL;
-
 }
+
 
 /*          *****************      from project 0             ****************************        */
 
