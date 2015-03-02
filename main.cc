@@ -1,5 +1,11 @@
 //
 //  main.c
+// todo:
+// send info in my routes table  (need a seprate thread, run every 5 seconds)
+// receive and update routes
+//
+// bellman-ford
+// split horizon and poison reverse
 //
 //  Created by Yubo Tian on 2/24/15.
 //
@@ -113,6 +119,10 @@ int send(char* des_VIP_addr,char* mes_to_send)
 }
 
 int update_forwarding_table(){
+	// called by rip response
+	// bellman-ford
+
+
 	/* periodically: check
     for each entry in FTE: check:
 
@@ -131,6 +141,15 @@ int update_forwarding_table(){
      */
 	return 0;
 }
+
+int send_rip_response(){
+
+}
+
+int clean_forwarding_table(){
+
+}
+
 
 
 int start_receive_service(uint16_t port){
@@ -246,10 +265,15 @@ void* node (void* a){
 
 	start_receive_service(my_port);
 
-	update_forwarding_table();
-
 	//create client when send message
-	//pull needed info from the interfaces vector te get necessary info for setting up client
+
+	//send rip_request
+
+	//start new thread: send_rip_response every 5 sec
+
+	//start new thread: clean forwarding table every sec
+
+	//triggered event: update_forwarding_table();
 
 
 
