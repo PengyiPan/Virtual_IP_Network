@@ -23,6 +23,7 @@
 #define MAX_MSG_LENGTH (1400)
 #define MAX_BACK_LOG (5)
 #define RECEIVE_BUFSIZE (65535)
+#define IP_PACKET_MAX_PAYLOAD (1336)
 
 using namespace std;
 
@@ -67,15 +68,14 @@ struct RIP_packet{
 	struct{
 		uint32_t cost;
 		uint32_t address;
-	} entries[num_entries];
+	} entries[64];
 };
 
 /*The packet that we send using UDP as the link layer*/
 
 struct IP_packet {
 	struct ip ip_header;
-	struct RIP_packet rip_packet;
-	char* msg;
+	char msg[IP_PACKET_MAX_PAYLOAD];
 };
 
 
@@ -127,7 +127,11 @@ int send(char* des_VIP_addr,char* mes_to_send)
 	return 0;
 }
 
-void handle_packet(IP_packet* packet_in){
+void handle_packet(IP_packet* ip_packet){
+
+	struct ip* ip = *(ip_packet->ip_header);
+
+	uint16_t rcv_cksum = ntohs(ip->ip_sum);
 
 }
 
