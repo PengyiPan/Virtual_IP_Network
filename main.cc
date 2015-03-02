@@ -20,6 +20,7 @@
 #include <sstream>
 #include <netdb.h>
 #include <sys/types.h>
+#include <time.h>
 
 //int server(uint16_t port);
 //int client(const char * addr, uint16_t port);
@@ -42,7 +43,6 @@ struct entry{
 	uint32_t cost;
 	uint32_t address;
 };
-
 // struct entry entries[num_entries];
 
 struct interface_t{
@@ -52,13 +52,20 @@ struct interface_t{
 	string my_VIP_addr;
     string remote_VIP_addr;
     int status;
-
 };
 typedef struct interface_t interface;
+
+struct forwarding_table_entry{
+	string remote_VIP_addr;
+	int cost;
+	//time_to_live;
+};
+typedef struct forwarding_table_entry FTE;
 
 int ifconfig();
 
 vector<interface*> my_interfaces(0);
+vector<FTE*> my_forwarding_table(0);
 
 int send(char* des_VIP_addr,char* mes_to_send)
 {
@@ -185,6 +192,7 @@ void read_in(){
 			string temp_remote_VIP_addr = line_buffer;
 
 			interface* new_interface = new interface;
+
 			new_interface -> unique_id = line_count;
 			new_interface -> my_port = my_port;
 			new_interface -> remote_port = temp_remote_port;
@@ -193,6 +201,13 @@ void read_in(){
 			new_interface -> status = 1;
 
 			my_interfaces.push_back(new_interface);
+
+			FTE* new_FTE = new FTE;
+
+			new_FTE -> remote_VIP_addr = temp_remote_VIP_addr;
+			new_FTE -> cost = 1;
+
+			my_forwarding_table.push_back(new_FTE);
 
 		}
 
