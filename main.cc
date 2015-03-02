@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-//
-//  main.c
-// todo:
-// send info in my routes table  (need a seprate thread, run every 5 seconds)
-// receive and update routes
-//
-// bellman-ford
-// split horizon and poison reverse
-//
-//  Created by Yubo Tian on 2/24/15.
-//
-
-=======
->>>>>>> e751c5c020f9e43f4f337ea9c1da47c63256e409
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,6 +27,7 @@ using namespace std;
 
 char** argv_in;
 int u_socket;                         /* our socket */
+pthread_mutex_t ft_lock;
 
 uint16_t command;
 uint16_t num_entries;
@@ -59,8 +45,8 @@ struct interface_t{
 	uint16_t my_port;
 	uint16_t remote_port;
 	string my_VIP_addr;
-    string remote_VIP_addr;
-    int status;
+	string remote_VIP_addr;
+	int status;
 };
 typedef struct interface_t interface;
 
@@ -124,22 +110,7 @@ int update_forwarding_table(){
 	// bellman-ford
 
 
-	/* periodically: check
-    for each entry in FTE: check:
 
-    double seconds;
-
-    time_t timer;
-    time_t FTE_last_updated_time = FTE->time_last_updated
-
-    timer = time(NULL) // get current time;
-    seconds = difftime(timer, FTE_last_updated_time);
-
-
-    if(seconds >= 12  && FTE->is_eternal = false){
-        delete from forwarding table
-    }
-     */
 	return 0;
 }
 
@@ -147,13 +118,40 @@ int send_rip_response(){
 
 }
 
-int clean_forwarding_table(){
+void* clean_forwarding_table(void* a){
+	/* periodically: check */
+	//printf("in clean thread  \n");
 
+	while(1){
+		//printf("in clean thread while loop \n");
+
+		for(int i =0; i< my_forwarding_table.size();i++){
+			FTE* cur = my_forwarding_table[i];
+			//printf("%s %d %d\n",cur->remote_VIP_addr.c_str(),cur->interface_uid,cur->cost);
+			double seconds;
+			time_t timer;
+
+			time_t FTE_last_updated_time = cur->time_last_updated;
+			timer = time(NULL);
+
+			seconds = difftime(timer, FTE_last_updated_time);
+			//printf("check sec \n");
+
+			if(seconds >= 12 ){
+				//delete from forwarding table
+				pthread_mutex_lock(&ft_lock);
+				my_forwarding_table.erase(my_forwarding_table.begin()+i);
+				pthread_mutex_unlock(&ft_lock);
+
+			}
+		}
+	}
+	return NULL;
 }
 
 
 
-int start_receive_service(uint16_t port){
+void* start_receive_service(void* a){
 
 	struct sockaddr_in myaddr;      /* our address */
 	struct sockaddr_in remaddr;     /* remote address */
@@ -165,8 +163,8 @@ int start_receive_service(uint16_t port){
 	/* create a UDP socket */
 
 	if ((u_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-			perror("cannot create socket\n");
-			return 0;
+		perror("cannot create socket\n");
+		return NULL;
 	}
 
 	/* bind the socket to any valid IP address and a specific port */
@@ -177,30 +175,30 @@ int start_receive_service(uint16_t port){
 	myaddr.sin_port = htons(my_port);
 
 	if (bind(u_socket, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
-			perror("bind failed");
-			return 0;
+		perror("bind failed");
+		return NULL;
 	}
 
 	/* now loop, receiving data and printing what we received */
 	while (1) {
-			printf("waiting on port %d\n", my_port);
-			recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-			printf("received %d bytes\n", recvlen);
-			if (recvlen > 0) {
-				buf[recvlen] = 0;
-				//HARD CODE============================
-				if(my_port==17001){ //receiving from A
-						string tmp("14.230.5.36");
-						send((char*)tmp.c_str(),(char*)&buf);
-					}
-				else{
-					printf("received message: %s\n", buf);
-				}
-				//HARD CODE====================
+		printf("waiting on port %d\n", my_port);
+		recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+		printf("received %d bytes\n", recvlen);
+		if (recvlen > 0) {
+			buf[recvlen] = 0;
+			//HARD CODE============================
+			if(my_port==17001){ //receiving from A
+				string tmp("14.230.5.36");
+				send((char*)tmp.c_str(),(char*)&buf);
 			}
+			else{
+				printf("received message: %s\n", buf);
+			}
+			//HARD CODE====================
+		}
 	}
 
-	return 0;
+	return NULL;
 
 }
 
@@ -246,7 +244,9 @@ void read_in(){
 			new_FTE -> cost = 1;
 			new_FTE -> time_last_updated = time(NULL);  //set to current time
 
+			pthread_mutex_lock(&ft_lock);
 			my_forwarding_table.push_back(new_FTE);
+			pthread_mutex_unlock(&ft_lock);
 
 		}
 
@@ -259,12 +259,22 @@ void read_in(){
 void* node (void* a){
 	printf("in node interface\n");
 
+	pthread_t clean_ft_thread;
+	pthread_t receive_service_thread;
+
+
+
 	//read the input file
 	read_in();
 
 	//create server that can accept message from different nodes
 
-	start_receive_service(my_port);
+	if(pthread_create(&receive_service_thread, NULL, start_receive_service, NULL)) {
+		fprintf(stderr, "Error creating clean forwarding table thread\n");
+		return NULL;
+	}
+
+
 
 	//create client when send message
 
@@ -273,6 +283,11 @@ void* node (void* a){
 	//start new thread: send_rip_response every 5 sec
 
 	//start new thread: clean forwarding table every sec
+	cout<< "\n start cleaning forwarding table" << endl;
+	if(pthread_create(&clean_ft_thread, NULL, clean_forwarding_table, NULL)) {
+		fprintf(stderr, "Error creating clean forwarding table thread\n");
+		return NULL;
+	}
 
 	//triggered event: update_forwarding_table();
 
