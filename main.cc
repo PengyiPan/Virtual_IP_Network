@@ -12,25 +12,26 @@
 #include <vector>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <string>
 #include <iostream>
 #include "ipsum.h"
-#include <iostream>
 #include <fstream>
 #include <sstream>
+#include <netdb.h>
+#include <sys/types.h>
 
 //int server(uint16_t port);
 //int client(const char * addr, uint16_t port);
 
 #define MAX_MSG_LENGTH (1400)
 #define MAX_BACK_LOG (5)
-#define NUM_THREADS (9)
+#define RECEIVE_BUFSIZE (65535)
 
 using namespace std;
 
 char** argv_in;
+int u_socket;                         /* our socket */
 
 uint16_t command;
 uint16_t num_entries;
@@ -51,6 +52,7 @@ struct interface_t{
 	string my_VIP_addr;
     string remote_VIP_addr;
     int status;
+    int socket;
 
 };
 typedef struct interface_t interface;
@@ -59,126 +61,88 @@ int ifconfig();
 
 vector<interface*> my_interfaces(0);
 
-int send(const char * addr, uint16_t port)
+int send(char* des_VIP_addr,char* mes_to_send)
 {
-	int sock;
-	struct sockaddr_in server_addr;
-	char msg[MAX_MSG_LENGTH], reply[MAX_MSG_LENGTH*3];
+	//LOOK up forwarding table to find which port to use
 
-	if ((sock = socket(AF_INET, SOCK_STREAM/* use tcp */, 0)) < 0) {   //create socket and check error
-		perror("Create socket error:");
-		return 1;
+
+
+	struct sockaddr_in servaddr;    /* server address */
+
+	/* fill in the server's address and data */
+	memset((char*)&servaddr, 0, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+
+	//===HARD CODE START===
+
+	struct sockaddr_in sa_loc;
+	struct hostent* pLocalHostInfo = gethostbyname("localhost");
+	long LocalHostAddress;
+	memcpy( &LocalHostAddress, pLocalHostInfo->h_addr, pLocalHostInfo->h_length );
+
+	servaddr.sin_port = htons(17001);
+	string loc("127.0.0.1");
+	servaddr.sin_addr.s_addr = LocalHostAddress;
+
+	//===HARD CODE END===
+
+	if (sendto(u_socket, mes_to_send, strlen(mes_to_send), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+		perror("sendto failed");
+		return 0;
 	}
 
 
-	printf("Socket created in send\n");
-	server_addr.sin_addr.s_addr = inet_addr(addr);  //sin_addr is struct in_addr
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port);
+	return 0;
+}
 
-	if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-		perror("Connect error:");
-		return 1;
+int refresh_connection(){
+
+
+	return 0;
+}
+
+
+int start_receive_service(uint16_t port){
+
+	struct sockaddr_in myaddr;      /* our address */
+	struct sockaddr_in remaddr;     /* remote address */
+	socklen_t addrlen = sizeof(remaddr);            /* length of addresses */
+	int recvlen;                    /* # bytes received */
+
+	unsigned char buf[RECEIVE_BUFSIZE];     /* receive buffer */
+
+	/* create a UDP socket */
+
+	if ((u_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+			perror("cannot create socket\n");
+			return 0;
 	}
 
-	printf("Connected to server %s:%d\n", addr, port);
+	/* bind the socket to any valid IP address and a specific port */
 
-	int recv_len = 0;
+	memset((char *)&myaddr, 0, sizeof(myaddr));
+	myaddr.sin_family = AF_INET;
+	myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	myaddr.sin_port = htons(my_port);
+
+	if (bind(u_socket, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
+			perror("bind failed");
+			return 0;
+	}
+
+	/* now loop, receiving data and printing what we received */
 	while (1) {
-		fflush(stdin);
-		printf("Enter message: \n");
-		gets(msg);
-
-
-		if (send(sock, msg, MAX_MSG_LENGTH, 0) < 0) {
-			perror("Send error:");
-			return 1;
-		}
-
-
-		recv_len = read(sock, reply, MAX_MSG_LENGTH*10);
-
-
-		if (recv_len < 0) {
-			perror("Recv error:");
-			return 1;
-		}
-		reply[recv_len] = 0;
-		printf("Server reply:\n%s\n", reply);
-		memset(reply, 0, sizeof(reply));
+			printf("waiting on port %d\n", my_port);
+			recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+			printf("received %d bytes\n", recvlen);
+			if (recvlen > 0) {
+				buf[recvlen] = 0;
+				printf("received message: \"%s\"\n", buf);
+			}
 	}
-	close(sock);
+
 	return 0;
-}
 
-void * receive_thread(void * parm){
-	//refresh the forwarding table here and print message to console
-
-	int n;
-	char temp[65535];
-	int len;
-	int cfd;
-
-	cfd = *(int*) parm;
-
-	while(len = recv(cfd, temp, sizeof(temp), 0)){
-
-		printf("echo to console: %s\n",temp);
-		memset(temp, 0, sizeof(temp));
-
-	}
-	close(cfd);
-	pthread_exit(0);
-
-}
-
-int start_receive(uint16_t port){
-
-	int sock,cfd;
-	int len;
-	struct sockaddr_in sin;
-	char temp[MAX_MSG_LENGTH], reply[MAX_MSG_LENGTH*3];
-	int n;
-	pthread_t  tid;             // thread id
-
-
-	if ((sock = socket(AF_INET, SOCK_STREAM,0)) < 0) {
-		perror("Create socket error(server):");
-		return 1;
-	}
-
-	printf("Socket created(server)\n");
-
-	bzero(&sin, sizeof(sin)); //
-	sin.sin_addr.s_addr = htonl(INADDR_ANY);
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(port);
-
-
-	if (bind(sock,(struct sockaddr *)&sin, sizeof(sin))<0){
-		perror("Bind error:");
-		return 1;
-	}
-
-	listen(sock,5);
-
-	//wait for connection, then receive and print msg
-	while(1){
-		socklen_t len = sizeof(sin);
-		cfd = accept(sock, (struct sockaddr*)&sin, &len);
-
-		//printf("after accept\n");
-
-		if (cfd<0){
-			perror("Accept error:");
-			return 1;
-		}
-
-		pthread_create(&tid, NULL, receive_thread, (void*) &cfd );
-
-	}
-	close(sock);
-	return 0;
 }
 
 /*          *****************      from project 0             ****************************        */
@@ -225,13 +189,15 @@ void read_in(){
 
 void* node (void* a){
 	printf("in node interface\n");
-	//	interface* interfaces = (interface*) malloc(10*sizeof(interface));
 
+	//read the input file
 	read_in();
 
 	//create server that can accept message from different nodes
 
-	start_receive(my_port);
+	start_receive_service(my_port);
+
+	refresh_connection();
 
 	//create client when send message
 	//pull needed info from the interfaces vector te get necessary info for setting up client
@@ -272,7 +238,7 @@ int up_interface(int interface_id){
 	return 0;
 }
 
-int down_interface(int interface_id){
+int down_interface(int interface_id){ //TODO: Close the UDP socket
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
 			my_interfaces[i]->status = 0;
@@ -359,10 +325,8 @@ int main(int argc, char* argv[]){
 			t = strtok(NULL, "");
 			printf("message :%s\n", t);
 			char* to_send_msg = t;
-			// find the corresponding interface
 
-			// create client socket with dest_ip
-
+			send(dest_ip,to_send_msg);
 
 		}
 
