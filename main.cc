@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //
 //  main.c
 // todo:
@@ -10,6 +11,8 @@
 //  Created by Yubo Tian on 2/24/15.
 //
 
+=======
+>>>>>>> e751c5c020f9e43f4f337ea9c1da47c63256e409
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,11 +66,9 @@ typedef struct interface_t interface;
 
 struct forwarding_table_entry{
 	string remote_VIP_addr;
+	uint16_t interface_uid;
 	int cost;
 	time_t time_last_updated;//time_to_live;
-	bool is_eternal;
-	//if destination is neighbor, aka in the interface, it should eternal. but if it is taken down, then delete FTE
-	// and when bring up again, set eternal to true,
 };
 typedef struct forwarding_table_entry FTE;
 
@@ -240,10 +241,10 @@ void read_in(){
 
 			FTE* new_FTE = new FTE;
 
+			new_FTE -> interface_uid = line_count;
 			new_FTE -> remote_VIP_addr = temp_remote_VIP_addr;
 			new_FTE -> cost = 1;
 			new_FTE -> time_last_updated = time(NULL);  //set to current time
-			new_FTE -> is_eternal = true;
 
 			my_forwarding_table.push_back(new_FTE);
 
@@ -301,7 +302,7 @@ int ifconfig(){
 int routes(){
 	for(int i =0; i< my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
-		printf("%s %d\n",cur->remote_VIP_addr.c_str(),cur->cost);
+		printf("%s %d %d\n",cur->remote_VIP_addr.c_str(),cur->interface_uid,cur->cost);
 	}
 	return 0;
 }
