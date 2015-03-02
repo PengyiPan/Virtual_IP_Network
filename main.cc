@@ -58,7 +58,10 @@ typedef struct interface_t interface;
 struct forwarding_table_entry{
 	string remote_VIP_addr;
 	int cost;
-	//time_to_live;
+	time_t time_last_updated;//time_to_live;
+	bool is_eternal;
+	//if destination is neighbor, aka in the interface, it should eternal. but if it is taken down, then delete FTE
+	// and when bring up again, set eternal to true,
 };
 typedef struct forwarding_table_entry FTE;
 
@@ -110,8 +113,22 @@ int send(char* des_VIP_addr,char* mes_to_send)
 }
 
 int update_forwarding_table(){
+	/* periodically: check
+    for each entry in FTE: check:
+
+    double seconds;
+
+    time_t timer;
+    time_t FTE_last_updated_time = FTE->time_last_updated
+
+    timer = time(NULL) // get current time;
+    seconds = difftime(timer, FTE_last_updated_time);
 
 
+    if(seconds >= 12  && FTE->is_eternal = false){
+        delete from forwarding table
+    }
+     */
 	return 0;
 }
 
@@ -206,6 +223,8 @@ void read_in(){
 
 			new_FTE -> remote_VIP_addr = temp_remote_VIP_addr;
 			new_FTE -> cost = 1;
+			new_FTE -> time_last_updated = time(NULL);  //set to current time
+			new_FTE -> is_eternal = true;
 
 			my_forwarding_table.push_back(new_FTE);
 
@@ -255,7 +274,16 @@ int ifconfig(){
 	return 0;
 }
 
+int routes(){
+	for(int i =0; i< my_forwarding_table.size();i++){
+		FTE* cur = my_forwarding_table[i];
+		printf("%s %d\n",cur->remote_VIP_addr.c_str(),cur->cost);
+	}
+	return 0;
+}
+
 int up_interface(int interface_id){
+	//TODO: should also add FTE into forwarding table
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
 
@@ -268,7 +296,10 @@ int up_interface(int interface_id){
 	return 0;
 }
 
-int down_interface(int interface_id){ //TODO: Close the UDP socket
+int down_interface(int interface_id){
+	//TODO: Close the UDP socket
+	//TODO: should also delete FTE from forwarding table
+
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
 			my_interfaces[i]->status = 0;
@@ -320,6 +351,7 @@ int main(int argc, char* argv[]){
 		else if (!strcmp(t,"routes")){
 			// print out routes
 			printf("command is %s\n", t);
+			routes();
 
 		}
 
