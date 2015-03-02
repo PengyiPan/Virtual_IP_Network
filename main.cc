@@ -145,7 +145,7 @@ int start_receive_service(uint16_t port){
 			if (recvlen > 0) {
 				buf[recvlen] = 0;
 				//HARD CODE============================
-				if(my_port==170001){ //receiving from A
+				if(my_port==17001){ //receiving from A
 						string tmp("14.230.5.36");
 						send((char*)tmp.c_str(),(char*)&buf);
 					}
