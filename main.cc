@@ -30,16 +30,7 @@ char** argv_in;
 int u_socket;                         /* our socket */
 pthread_mutex_t ft_lock;
 
-uint16_t command;
-uint16_t num_entries;
 uint16_t my_port;
-
-
-struct entry{
-	uint32_t cost;
-	uint32_t address;
-};
-// struct entry entries[num_entries];
 
 struct interface_t{
 	uint16_t unique_id;
@@ -67,7 +58,7 @@ struct RIP_packet{
 	struct{
 		uint32_t cost;
 		uint32_t address;
-	} entries[num_entries];
+	} entries[64];
 };
 
 /*The packet that we send using UDP as the link layer*/
@@ -140,20 +131,45 @@ int update_forwarding_table(){
 	return 0;
 }
 
-int send_rip_response(){
+void* send_rip_response(void* a){
 	//send stuff in your forwarding table to your neighbors every five seconds
-	while(1){
-		for (int i = 0; i< forwarding_table.size();i++){
-			FTE* cur = my_forwarding_table[i];
 
+	// todo: w/ split horizon and poison reverse
+	while(1){
+		/*struct RIP_packet{
+			uint16_t command;
+			uint16_t num_entries;
+			struct{
+				uint32_t cost;
+				uint32_t address;
+			} entries[num_entries];
+		};*/
+		for (int i = 0; i < my_interfaces.size(); i++){
+			interface* cur_interface = my_interfaces[i];
+
+			RIP_packet* RIP_packet_tosend = new RIP_packet ;
+			uint16_t temp_num_entries = my_forwarding_table.size();
+			uint16_t temp_command = 2;
+
+			for (int j = 0; j < my_forwarding_table.size(); j++){
+				FTE* cur_FTE = my_forwarding_table[j];
+
+
+			}
+
+			//create RIP_packet_tosend
+			RIP_packet_tosend->num_entries = temp_num_entries;
+			RIP_packet_tosend->command = temp_command;
+
+			printf("created a RIP packet tosend;\n");
+
+			//send response
 
 		}
-
-
-
 		sleep(5);
-		printf("wake up")
+		printf("wake up");
 	}
+	return NULL;
 }
 
 void* clean_forwarding_table(void* a){
@@ -175,7 +191,7 @@ void* clean_forwarding_table(void* a){
 			seconds = difftime(timer, FTE_last_updated_time);
 			//printf("check sec \n");
 
-			if(seconds >= 12 ){
+			if(seconds >= 10000 ){
 				//delete from forwarding table
 				pthread_mutex_lock(&ft_lock);
 				my_forwarding_table.erase(my_forwarding_table.begin()+i);
@@ -218,16 +234,16 @@ void* start_receive_service(void* a){
 
 	/* now loop, receiving data and printing what we received */
 	while (1) {
-			printf("waiting on port %d\n", my_port);
-			recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-			printf("received %d bytes\n", recvlen);
-			if (recvlen > 0) {
-				buf[recvlen] = 0;
+		printf("waiting on port %d\n", my_port);
+		recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
+		printf("received %d bytes\n", recvlen);
+		if (recvlen > 0) {
+			buf[recvlen] = 0;
 
-				handle_packet((IP_packet*)&buf);
+			handle_packet((IP_packet*)&buf);
 
-			}
 		}
+	}
 	return NULL;
 }
 
@@ -290,6 +306,7 @@ void* node (void* a){
 	printf("in node interface\n");
 
 	pthread_t clean_ft_thread;
+	pthread_t send_rip_response_thread;
 	pthread_t receive_service_thread;
 
 
@@ -308,6 +325,10 @@ void* node (void* a){
 	//send rip_request
 
 	//start new thread: send_rip_response every 5 sec
+	if(pthread_create(&send_rip_response_thread, NULL, send_rip_response, NULL)) {
+		fprintf(stderr, "Error creating clean forwarding table thread\n");
+		return NULL;
+	}
 
 	//start new thread: clean forwarding table every sec
 	cout<< "\n start cleaning forwarding table" << endl;
