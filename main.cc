@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-//
-//  main.c
-// todo:
-// send info in my routes table  (need a seprate thread, run every 5 seconds)
-// receive and update routes
-//
-// bellman-ford
-// split horizon and poison reverse
-//
-//  Created by Yubo Tian on 2/24/15.
-//
-
-=======
->>>>>>> e751c5c020f9e43f4f337ea9c1da47c63256e409
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +15,7 @@
 #include <netdb.h>
 #include <sys/types.h>
 #include <time.h>
+#include <netinet/ip.h>
 
 //int server(uint16_t port);
 //int client(const char * addr, uint16_t port);
@@ -71,6 +57,27 @@ struct forwarding_table_entry{
 	time_t time_last_updated;//time_to_live;
 };
 typedef struct forwarding_table_entry FTE;
+
+/*The packet that will be encapsulated in IP packet as payload*/
+
+struct RIP_packet{
+	uint16_t command;
+	uint16_t num_entries;
+	struct{
+		uint32_t cost;
+		uint32_t address;
+	} entries[num_entries];
+};
+
+/*The packet that we send using UDP as the link layer*/
+
+struct IP_packet {
+	struct ip ip_header;
+	struct RIP_packet rip_packet;
+	char* msg;
+};
+
+
 
 int ifconfig();
 
@@ -117,6 +124,10 @@ int send(char* des_VIP_addr,char* mes_to_send)
 
 
 	return 0;
+}
+
+void handle_packet(IP_packet* packet_in){
+
 }
 
 int update_forwarding_table(){
@@ -188,15 +199,8 @@ int start_receive_service(uint16_t port){
 			printf("received %d bytes\n", recvlen);
 			if (recvlen > 0) {
 				buf[recvlen] = 0;
-				//HARD CODE============================
-				if(my_port==17001){ //receiving from A
-						string tmp("14.230.5.36");
-						send((char*)tmp.c_str(),(char*)&buf);
-					}
-				else{
-					printf("received message: %s\n", buf);
-				}
-				//HARD CODE====================
+
+				handle_packet((IP_packet*)&buf);
 			}
 	}
 
