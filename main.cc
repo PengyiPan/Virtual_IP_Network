@@ -140,10 +140,13 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 
 		ip_header->ip_ttl = 16;
 
-		ip_header->ip_sum = htons(ip_sum((char*)ip_header, sizeof(*ip_header)));
+		//ip_header->ip_sum = htons(ip_sum((char*)ip_header, sizeof(*ip_header)));
+		ip_header->ip_sum = 0;
+		ip_header->ip_sum = htons(ip_sum((char*)ip_header, sizeof(struct ip)));
 
-		memcpy(&(ip_packet_to_send->ip_header),ip_header,sizeof(*ip_header));
-		//ip_packet_to_send->ip_header = *ip_header;
+		printf("sender ip_sum: %d\n",ip_header->ip_sum);
+
+		memcpy(&(ip_packet_to_send->ip_header),ip_header,sizeof(struct ip));
 
 		memcpy(&(ip_packet_to_send->msg),mes_to_send,msg_length);
 
@@ -168,8 +171,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 
 	servaddr.sin_addr.s_addr = LocalHostAddress;
 
-
-	if (sendto(u_socket, mes_to_send, sizeof(IP_packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+	if (sendto(u_socket, mes_to_send, sizeof(struct IP_packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
 		perror("SEND failed\n");
 		return 0;
 	}
@@ -179,6 +181,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 }
 
 void forward_or_print(IP_packet* packet){
+	//TODO Update check sum when forwarding
 
 	struct ip* ip = &(packet->ip_header);
 	struct in_addr des_addr = ip->ip_dst;
@@ -194,18 +197,22 @@ void forward_or_print(IP_packet* packet){
 	char str[50];
 	inet_ntop(AF_INET, &des_addr, str, INET_ADDRSTRLEN);
 	printf("Forwarding to %s\n",str);
-	send(des_addr, (char*)packet,sizeof(*packet),true,false);
+	send(des_addr, (char*)packet,sizeof(struct IP_packet),true,false);
 }
 
 void handle_packet(IP_packet* ip_packet){
 
 	struct ip* ip = &(ip_packet->ip_header);
 
-	uint16_t rcv_cksum = ntohs(ip->ip_sum);
+	//uint16_t rcv_cksum = ip->ip_sum;
+	int rcv_cksum = ip->ip_sum;
+
+	printf("received ip_sum: %d\n",rcv_cksum);
 
 	ip->ip_sum = 0;
 
-	uint16_t cal_cksum = ntohs(ip_sum((char*)ip,sizeof(*ip)));
+	uint16_t cal_cksum = ntohs(ip_sum((char*)ip,sizeof(struct ip)));
+	printf("calculated up_sum: %d\n",cal_cksum);
 	if(rcv_cksum != cal_cksum) {
 		printf("***Checksum Mismatch***\n");
 		/* discard packet */
@@ -218,7 +225,7 @@ void handle_packet(IP_packet* ip_packet){
 
 		} else {
 			ip->ip_ttl = ttl - 1;
-			ip->ip_sum = htons(ip_sum((char*)ip, sizeof(*ip)));
+			ip->ip_sum = htons(ip_sum((char*)ip, sizeof(struct ip)));
 			/* IP packet manipulation complete */
 
 			uint8_t type = ip->ip_p;
@@ -328,7 +335,7 @@ void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 		}
 		//sending response
 		RIP_packet* to_send_packet = create_RIP_response_packet(next_hop_interface);
-		send(new_next_hop_VIP_addr, (char*) to_send_packet, sizeof(*to_send_packet),false,true);
+		send(new_next_hop_VIP_addr, (char*) to_send_packet, sizeof(struct RIP_packet),false,true);
 
 	}
 	else if(command == 2){
@@ -424,7 +431,7 @@ void* periodic_send_rip_response(void* a){
 
 			//send response
 			int t;
-			t = send( (my_interfaces[i]->remote_VIP_addr), (char*) RIP_packet_tosend, sizeof(*RIP_packet_tosend),false,true);
+			t = send( (my_interfaces[i]->remote_VIP_addr), (char*) RIP_packet_tosend, sizeof(struct RIP_packet),false,true);
 
 		}
 		sleep(5);
@@ -591,17 +598,17 @@ void* node (void* a){
 	//send rip_request
 
 	//start new thread: send_rip_response every 5 sec
-	if(pthread_create(&send_rip_response_thread, NULL, periodic_send_rip_response, NULL)) {
-		fprintf(stderr, "Error creating clean forwarding table thread\n");
-		return NULL;
-	}
+//	if(pthread_create(&send_rip_response_thread, NULL, periodic_send_rip_response, NULL)) {
+//		fprintf(stderr, "Error creating clean forwarding table thread\n");
+//		return NULL;
+//	}
 
 	//start new thread: clean forwarding table every sec
-	cout<< "\n start cleaning forwarding table" << endl;
-	if(pthread_create(&clean_ft_thread, NULL, clean_forwarding_table, NULL)) {
-		fprintf(stderr, "Error creating clean forwarding table thread\n");
-		return NULL;
-	}
+//	cout<< "\n start cleaning forwarding table" << endl;
+//	if(pthread_create(&clean_ft_thread, NULL, clean_forwarding_table, NULL)) {
+//		fprintf(stderr, "Error creating clean forwarding table thread\n");
+//		return NULL;
+//	}
 
 	//triggered event: update_forwarding_table();
 
