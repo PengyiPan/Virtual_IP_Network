@@ -77,7 +77,7 @@ struct IP_packet {
 
 
 int ifconfig();
-int update_forwarding_table(RIP_packet* rip);
+int update_forwarding_table(RIP_packet* rip, string new_next_hop_VIP_addr );
 
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
@@ -138,11 +138,11 @@ int send(char* des_VIP_addr,char* mes_to_send,bool msg_encapsulated)
 void forward_or_print(IP_packet* packet){
 
 	struct ip* ip = &(packet->ip_header);
-	uint32_t addr = ntohs(ip->ip_dst.s_addr);
+	uint32_t addr = ntohl(ip->ip_dst.s_addr);
 
 	for(int i=0;i<my_interfaces.size();i++){
 		interface* cur = my_interfaces[i];
-		uint32_t cur_addr = ntohs(inet_addr((cur->my_VIP_addr).c_str()));
+		uint32_t cur_addr = ntohl(inet_addr((cur->my_VIP_addr).c_str()));
 		if(addr == cur_addr){
 			printf("received: %s\n",packet->msg);
 			return;
@@ -196,13 +196,102 @@ void handle_packet(IP_packet* ip_packet){
 
 }
 
-int update_forwarding_table(RIP_packet* rip){
+void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VIP_addr){
+
+	int i;
+
+	for( i = 0; i < my_forwarding_table.size(); i++){
+		uint32_t my_dest_addr = ntohl(inet_addr(( my_forwarding_table[i] -> remote_VIP_addr ).c_str()));
+
+		if ( my_dest_addr == new_entry.address ){
+				if ( new_entry.cost + 1 < my_forwarding_table[i] -> cost ) {
+
+					FTE * new_FTE = new FTE;
+					new_FTE -> interface_uid = next_hop_interface_id;
+
+					// convert uint32_t address to string
+				    struct in_addr temp_ip_addr;
+				    temp_ip_addr.s_addr = new_entry.address;
+
+					string temp_new_entry_addr (inet_ntoa(temp_ip_addr));
+
+					//    uint32_t cur_addr = ntohs(inet_addr((cur->my_VIP_addr).c_str()));
+
+
+					new_FTE -> remote_VIP_addr = temp_new_entry_addr;
+					new_FTE -> cost = new_entry.cost + 1;
+					new_FTE -> time_last_updated = time(NULL);
+
+					pthread_mutex_lock(&ft_lock);
+					my_forwarding_table[i] = new_FTE;
+					pthread_mutex_unlock(&ft_lock);
+
+					return;
+
+				} else if ( !strcmp( (my_forwarding_table[i] -> remote_VIP_addr).c_str(), next_hop_VIP_addr.c_str()) ){
+
+					pthread_mutex_lock(&ft_lock);
+
+					my_forwarding_table[i] -> interface_uid = next_hop_interface_id;
+					my_forwarding_table[i] -> time_last_updated = time(NULL);
+
+					pthread_mutex_unlock(&ft_lock);
+
+					return;
+
+				} else {
+					return;
+				}
+			}
+
+	}
+	if (i == my_forwarding_table.size() ){
+		if (my_forwarding_table.size() < 64 ){
+			FTE* new_FTE = new FTE;
+
+			new_FTE -> interface_uid = next_hop_interface_id;
+
+			// convert uint32_t address to string
+		    struct in_addr temp_ip_addr;
+		    temp_ip_addr.s_addr = new_entry.address;
+
+			string temp_new_entry_addr (inet_ntoa(temp_ip_addr));
+
+
+			new_FTE -> remote_VIP_addr = temp_new_entry_addr;
+			new_FTE -> cost = new_entry.cost + 1;
+			new_FTE -> time_last_updated = time(NULL);
+
+			pthread_mutex_lock(&ft_lock);
+			my_forwarding_table.push_back( new_FTE );
+			pthread_mutex_unlock(&ft_lock);
+
+			return;
+		} else {
+			return;
+		}
+	}
+}
+
+void update_forwarding_table(RIP_packet* RIP, string new_next_hop_VIP_addr){
 	// called by rip response
 	// bellman-ford
+	int numNewRoutes = RIP -> num_entries;
 
+	int next_hop_interface_id = 0;
+	for( int i = 0; i < my_interfaces.size(); i++){
+		if ( !strcmp( (my_interfaces[i]->remote_VIP_addr).c_str() , new_next_hop_VIP_addr.c_str())  ){
+			next_hop_interface_id = i;
+			break;
+		}
+	}
 
+	int i;
 
-	return 0;
+	for (i = 0 ; i < numNewRoutes ; i++){
+		merge_route( RIP->entries[i] , next_hop_interface_id,  new_next_hop_VIP_addr );
+	}
+
 }
 
 struct RIP_packet* create_RIP_packet(interface* cur_interface){
@@ -235,12 +324,12 @@ struct RIP_packet* create_RIP_packet(interface* cur_interface){
 
 			RIP_packet_tosend -> entries[i].cost = 16 ;
 
-			uint32_t temp_entry_addr = ntohs(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			uint32_t temp_entry_addr = ntohl(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
 			RIP_packet_tosend -> entries[i].address = temp_entry_addr  ;
 		} else {
 			RIP_packet_tosend -> entries[i].cost = cur_FTE -> cost ;
 
-			uint32_t temp_entry_addr = ntohs(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			uint32_t temp_entry_addr = ntohl(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
 			RIP_packet_tosend -> entries[i].address = temp_entry_addr  ;
 		}
 	}
@@ -266,7 +355,7 @@ void* send_rip_response(void* a){
 
 			//send response
 			int t;
-			t = send((my_interface[i]->remote_VIP_address).c_str(), (char*) RIP_packet_tosend, false);
+			t = send(((char*)(my_interfaces[i]->remote_VIP_addr).c_str()), (char*) RIP_packet_tosend, false);
 
 		}
 		sleep(5);
