@@ -77,9 +77,20 @@ int update_forwarding_table(RIP_packet* rip);
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
 
-int send(char* des_VIP_addr,char* mes_to_send)
+int send(char* des_VIP_addr,char* mes_to_send,bool msg_encapsulated)
 {
-	//LOOK up forwarding table to find which port to use
+
+
+	if(!msg_encapsulated){
+		/*Msg not encapsulated, need to create IP packet*/
+
+		struct IP_packet* ip_packet_to_send = new IP_packet;
+		struct ip* ip_header = new ip;
+
+		//ip_header->ip
+	}
+
+
 
 
 
@@ -135,7 +146,7 @@ void forward_or_print(IP_packet* packet){
 	/*Des addr not found in infterfaces, forward*/
 	char* next_addr = inet_ntoa(ip->ip_dst);
 	printf("Forwarding to %s\n",next_addr);
-	send((char*)&next_addr, (char*)packet);
+	send((char*)&next_addr, (char*)packet,true);
 }
 
 void handle_packet(IP_packet* ip_packet){
@@ -174,7 +185,6 @@ void handle_packet(IP_packet* ip_packet){
 			}else{
 				printf("Payload is neither data nor RIP, dropped\n");
 			}
-
 
 		}
 	}
@@ -535,7 +545,7 @@ int main(int argc, char* argv[]){
 			printf("message :%s\n", t);
 			char* to_send_msg = t;
 
-			send(dest_ip,to_send_msg);
+			send(dest_ip,to_send_msg,false);
 
 		}
 
