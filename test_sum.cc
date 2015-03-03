@@ -61,7 +61,7 @@ int main(int argc, char* argv[]){
 	//in_addr to uint32_t
 	uint32_t addr_32 = htonl(addr1.s_addr);
 
-	// uint32_t
+	// uint32_t back to in_addr
 	struct in_addr addr3;
 	addr3.s_addr = ntohl(addr_32);
 

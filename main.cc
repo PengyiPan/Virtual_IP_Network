@@ -605,15 +605,24 @@ int up_interface(int interface_id){
 int down_interface(int interface_id){
 	//TODO: Close the UDP socket
 	//TODO: should also delete FTE from forwarding table
+	struct in_addr addr_to_erase;
+
+	bool found = false;
 
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
 			my_interfaces[i]->status = 0;
+			addr_to_erase = my_interfaces[i]-> remote_VIP_addr;
 			printf("Interface %d down.\n", my_interfaces[i]->unique_id);
-			return 0;
+			found = true;
 		}
 	}
-	printf("Interface %d not found.\n", interface_id);
+
+	for (int j = 0; j< my_forwarding_table.size(); j++){
+		//delete FTE from forwarding table
+	}
+
+	if(!found) { printf("Interface %d not found.\n", interface_id); }
 	return 0;
 }
 
