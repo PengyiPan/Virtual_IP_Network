@@ -78,6 +78,8 @@ struct IP_packet {
 
 int ifconfig();
 void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
+void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
+struct RIP_packet* create_RIP_response_packet(interface* cur_interface);
 
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
@@ -227,7 +229,7 @@ void handle_packet(IP_packet* ip_packet){
 			else if(type == 200){
 				/*Payload is RIP, process*/
 				struct in_addr src_addr = ip->ip_src ;
-				update_forwarding_table((RIP_packet*)&(ip_packet->msg),src_addr);
+				RIP_packet_handler((RIP_packet*)&(ip_packet->msg),src_addr);
 
 			}else{
 				printf("Payload is neither data nor RIP, dropped\n");
@@ -311,6 +313,30 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 	}
 }
 
+void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
+
+	int command = RIP->command;
+
+	if(command == 1){
+		//got request
+		interface* next_hop_interface;
+		for( int i = 0; i < my_interfaces.size(); i++){
+			if ( in_addr_compare( (my_interfaces[i]->remote_VIP_addr) , new_next_hop_VIP_addr )){
+				next_hop_interface = my_interfaces[i];
+				break;
+			}
+		}
+		//sending response
+		RIP_packet* to_send_packet = create_RIP_response_packet(next_hop_interface);
+		send(new_next_hop_VIP_addr, (char*) to_send_packet, sizeof(*to_send_packet),false,true);
+
+	}
+	else if(command == 2){
+		//got response, update
+		update_forwarding_table(RIP,new_next_hop_VIP_addr);
+	}
+}
+
 void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 	// called by rip response
 	// bellman-ford
@@ -319,7 +345,7 @@ void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_ad
 	int next_hop_interface_id = 0;
 	for( int i = 0; i < my_interfaces.size(); i++){
 		if ( in_addr_compare( (my_interfaces[i]->remote_VIP_addr) , new_next_hop_VIP_addr )){
-			next_hop_interface_id = i;
+			next_hop_interface_id = my_interfaces[i]->unique_id;
 			break;
 		}
 	}
@@ -332,7 +358,7 @@ void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_ad
 
 }
 
-struct RIP_packet* create_RIP_packet(interface* cur_interface){
+struct RIP_packet* create_RIP_response_packet(interface* cur_interface){
 	//create a RIP_packet that should be sent to cur_interface, w/ split horizon and poison reverse
 
 	struct in_addr destination_VIP = cur_interface -> remote_VIP_addr;
@@ -350,13 +376,17 @@ struct RIP_packet* create_RIP_packet(interface* cur_interface){
 		//find cur_FTE->interface_uid  in the interface table, and if the interface->remote_VIP == cur_interface, poison reverse
 		bool do_pr = false;
 
-		for (int j = 0; j< my_interfaces.size(); j++){
-			if (cur_FTE -> interface_uid == my_interfaces[j] -> unique_id ){
-				if (in_addr_compare( (my_interfaces[j] -> remote_VIP_addr) , destination_VIP )){
-					do_pr = true;
-				}
-			}
+		if(my_forwarding_table[i]->interface_uid == cur_interface->unique_id){
+			do_pr = true;
 		}
+
+//		for (int j = 0; j< my_interfaces.size(); j++){
+//			if (cur_FTE -> interface_uid == my_interfaces[j] -> unique_id ){
+//				if (in_addr_compare( (my_interfaces[j] -> remote_VIP_addr) , destination_VIP )){
+//					do_pr = true;
+//				}
+//			}
+//		}
 
 		if (do_pr){
 			//set cost = 16 and add to entries[]
@@ -381,14 +411,14 @@ struct RIP_packet* create_RIP_packet(interface* cur_interface){
 	return RIP_packet_tosend;
 }
 
-void* send_rip_response(void* a){
+void* periodic_send_rip_response(void* a){
 	//send stuff in your forwarding table to your neighbors every five seconds
 
 	while(1){
 		for (int i = 0; i < my_interfaces.size(); i++){
 			interface* cur_interface = my_interfaces[i];
 
-			RIP_packet* RIP_packet_tosend = create_RIP_packet(cur_interface);
+			RIP_packet* RIP_packet_tosend = create_RIP_response_packet(cur_interface);
 
 			printf("created a RIP packet tosend;\n");
 
@@ -561,7 +591,7 @@ void* node (void* a){
 	//send rip_request
 
 	//start new thread: send_rip_response every 5 sec
-	if(pthread_create(&send_rip_response_thread, NULL, send_rip_response, NULL)) {
+	if(pthread_create(&send_rip_response_thread, NULL, periodic_send_rip_response, NULL)) {
 		fprintf(stderr, "Error creating clean forwarding table thread\n");
 		return NULL;
 	}
