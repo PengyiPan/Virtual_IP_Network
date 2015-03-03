@@ -77,7 +77,7 @@ struct IP_packet {
 
 
 int ifconfig();
-void update_forwarding_table(RIP_packet* RIP, string new_next_hop_VIP_addr);
+void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
 
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
@@ -115,7 +115,9 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	}
 
 	if(!found){
-		printf("%s cannot be reached\n",des_VIP_addr);
+		char str[50];
+		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
+		printf("%s cannot be reached\n",str);
 	}
 	/*Found which interface to use*/
 
@@ -225,7 +227,7 @@ void handle_packet(IP_packet* ip_packet){
 			else if(type == 200){
 				/*Payload is RIP, process*/
 				struct in_addr src_addr = ip->ip_src ;
-				update_forwarding_table((RIP_packet*)&(ip_packet->msg),in_addr);
+				update_forwarding_table((RIP_packet*)&(ip_packet->msg),src_addr);
 
 			}else{
 				printf("Payload is neither data nor RIP, dropped\n");
@@ -242,7 +244,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 
 	for( i = 0; i < my_forwarding_table.size(); i++){
 
-		uint32_t my_dest_addr = htonl(my_forwarding_table[i] -> remote_VIP_addr);
+		uint32_t my_dest_addr = htonl(my_forwarding_table[i] -> remote_VIP_addr.s_addr);
 
 		if ( my_dest_addr == new_entry.address ){
 				if ( new_entry.cost + 1 < my_forwarding_table[i] -> cost ) {
@@ -316,8 +318,8 @@ void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_ad
 
 	int next_hop_interface_id = 0;
 	for( int i = 0; i < my_interfaces.size(); i++){
-		if ( in_addr_compare( (my_interfaces[i]->remote_VIP_addr) , new_next_hop_VIP_addr ){
-			new_next_hop_interface_id = i;
+		if ( in_addr_compare( (my_interfaces[i]->remote_VIP_addr) , new_next_hop_VIP_addr )){
+			next_hop_interface_id = i;
 			break;
 		}
 	}
@@ -325,7 +327,7 @@ void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_ad
 	int i;
 
 	for (i = 0 ; i < numNewRoutes ; i++){
-		merge_route( RIP->entries[i] , new_next_hop_interface_id,  new_next_hop_VIP_addr );
+		merge_route( RIP->entries[i] , next_hop_interface_id,  new_next_hop_VIP_addr );
 	}
 
 }
@@ -496,13 +498,13 @@ void read_in(){
 			int temp_remote_port = atoi(line_buffer.substr(line_buffer.find(":")+1,line_buffer.find(" ")).c_str());
 			line_buffer = line_buffer.substr(line_buffer.find(" ")+1);
 
-			struct in_addr temp_my_VIP_addr = new in_addr;
+			struct in_addr temp_my_VIP_addr;
 			string temp_my_VIP_addr_str = line_buffer.substr(0,line_buffer.find(" "));
 			inet_pton(AF_INET, temp_my_VIP_addr_str.c_str(), (void*)&temp_my_VIP_addr);
 
 			line_buffer = line_buffer.substr(line_buffer.find(" ")+1);
 
-			struct in_addr temp_remote_VIP_addr = new in_addr;
+			struct in_addr temp_remote_VIP_addr;
 			string temp_remote_VIP_addr_str = line_buffer;
 			inet_pton(AF_INET, temp_remote_VIP_addr_str.c_str(), (void*)&temp_remote_VIP_addr);
 
@@ -658,7 +660,7 @@ int down_interface(int interface_id){
 
 	for (int j = 0; j< my_forwarding_table.size(); j++){
 		//delete FTE from forwarding table if using this interface
-		if (my_forwarding_table[j]->interface_id  == interface_id ){
+		if (my_forwarding_table[j]->interface_uid == interface_id ){
 			my_forwarding_table.erase(my_forwarding_table.begin()+j);
 		}
 	}
@@ -740,11 +742,16 @@ int main(int argc, char* argv[]){
 			char* dest_ip = t;
 			printf("command is send, destination ip address: %s \n", dest_ip);
 
+			struct in_addr dest_addr;
+			inet_pton(AF_INET, dest_ip, (void*)&dest_addr);
+
 			t = strtok(NULL, "");
 			printf("message :%s\n", t);
 			char* to_send_msg = t;
 
-			send(dest_ip,to_send_msg,strlen(to_send_msg)),false,false);
+			int len = strlen(to_send_msg);
+
+			send(dest_addr,to_send_msg,len,false,false);
 
 		}
 
