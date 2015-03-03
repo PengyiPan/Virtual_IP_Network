@@ -77,6 +77,7 @@ struct IP_packet {
 
 
 int ifconfig();
+int update_forwarding_table(RIP_packet* rip);
 
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
@@ -123,15 +124,69 @@ int send(char* des_VIP_addr,char* mes_to_send)
 	return 0;
 }
 
+void forward_or_print(IP_packet* packet){
+
+	struct ip* ip = &(packet->ip_header);
+	uint32_t addr = ntohs(ip->ip_dst.s_addr);
+
+	for(int i=0;i<my_interfaces.size();i++){
+		interface* cur = my_interfaces[i];
+		uint32_t cur_addr = ntohs(inet_addr((cur->my_VIP_addr).c_str()));
+		if(addr == cur_addr){
+			printf("received: %s\n",packet->msg);
+			return;
+		}
+	}
+	/*Des addr not found in infterfaces, forward*/
+	char* next_addr = inet_ntoa(ip->ip_dst);
+	printf("Forwarding to %s\n",next_addr);
+	send((char*)&next_addr, (char*)packet);
+}
+
 void handle_packet(IP_packet* ip_packet){
 
-	struct ip* ip = *(ip_packet->ip_header);
+	struct ip* ip = &(ip_packet->ip_header);
 
 	uint16_t rcv_cksum = ntohs(ip->ip_sum);
 
+	ip->ip_sum = 0;
+
+	uint16_t cal_cksum = ntohs(ip_sum((char*)ip,sizeof(*ip)));
+	if(rcv_cksum != cal_cksum) {
+		printf("***checksum mismatch***\n");
+		/* discard packet */
+	} else {
+		printf("***checksum match***\n");
+		uint8_t ttl = ip->ip_ttl; /* check if zero */
+		if(ttl <= 1) {
+			/* packet: timeout drop packet*/
+			printf("packet timed out, dropped\n");
+
+		} else {
+			ip->ip_ttl = ttl - 1;
+			ip->ip_sum = htons(ip_sum((char*)ip, sizeof(*ip)));
+			/* IP packet manipulation complete */
+
+			uint8_t type = ntohs(ip->ip_p);
+			if(type == 0){
+				/*Payload is test data*/
+				forward_or_print(ip_packet);
+			}
+			else if(type == 200){
+				/*Payload is RIP, process*/
+				update_forwarding_table((RIP_packet*)&(ip_packet->msg));
+
+			}else{
+				printf("Payload is neither data nor RIP, dropped\n");
+			}
+
+
+		}
+	}
+
 }
 
-int update_forwarding_table(){
+int update_forwarding_table(RIP_packet* rip){
 	// called by rip response
 	// bellman-ford
 
