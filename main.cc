@@ -37,14 +37,14 @@ struct interface_t{
 	uint16_t unique_id;
 	uint16_t my_port;
 	uint16_t remote_port;
-	string my_VIP_addr;
-	string remote_VIP_addr;
+	struct in_addr my_VIP_addr;
+	struct in_addr remote_VIP_addr;
 	int status;
 };
 typedef struct interface_t interface;
 
 struct forwarding_table_entry{
-	string remote_VIP_addr;
+	struct in_addr remote_VIP_addr;
 	uint16_t interface_uid;
 	int cost;
 	time_t time_last_updated;//time_to_live;
