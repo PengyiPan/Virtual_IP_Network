@@ -100,6 +100,16 @@ bool in_addr_compare(struct in_addr addr1,struct in_addr addr2){
 
 int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_encapsulated,bool msg_is_RIP)
 {
+
+	for(int i=0;i<my_interfaces.size();i++){
+		interface* cur = my_interfaces[i];
+		if(in_addr_compare(des_VIP_addr,cur->my_VIP_addr)){
+			printf("Sending msg to myself: %s\n",mes_to_send);
+			return 0;
+		}
+	}
+
+	/*Not sending to myself*/
 	interface* interface_to_use;
 	bool found = 0;
 	for(int i=0;i < my_forwarding_table.size();i++){
@@ -120,6 +130,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 		char str[50];
 		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
 		printf("%s cannot be reached\n",str);
+		return 0;
 	}
 	/*Found which interface to use*/
 
@@ -450,21 +461,24 @@ void* clean_forwarding_table(void* a){
 		for(int i =0; i< my_forwarding_table.size();i++){
 			FTE* cur = my_forwarding_table[i];
 			//printf("%s %d %d\n",cur->remote_VIP_addr.c_str(),cur->interface_uid,cur->cost);
-			double seconds;
-			time_t timer;
 
-			time_t FTE_last_updated_time = cur->time_last_updated;
-			timer = time(NULL);
+			if ( cur->time_last_updated != 0 ){
+				double seconds;
+				time_t timer;
 
-			seconds = difftime(timer, FTE_last_updated_time);
-			//printf("check sec \n");
+				time_t FTE_last_updated_time = cur->time_last_updated;
+				timer = time(NULL);
 
-			if(seconds >= 8 ){
-				//delete from forwarding table
-				//pthread_mutex_lock(&ft_lock);
-				my_forwarding_table.erase(my_forwarding_table.begin()+i);
-				//pthread_mutex_unlock(&ft_lock);
+				seconds = difftime(timer, FTE_last_updated_time);
+				//printf("check sec \n");
 
+				if(seconds >= 8 ){
+					//delete from forwarding table
+					//pthread_mutex_lock(&ft_lock);
+					my_forwarding_table.erase(my_forwarding_table.begin()+i);
+					//pthread_mutex_unlock(&ft_lock);
+
+				}
 			}
 		}
 	}
@@ -569,14 +583,14 @@ void read_in(){
 
 			FTE* new_FTE_to_myself = new FTE;
 
-//			new_FTE_to_myself -> interface_uid = line_count;
-//			new_FTE -> remote_VIP_addr = temp_remote_VIP_addr;
-//			new_FTE -> cost = 1;
-//			new_FTE -> time_last_updated = time(NULL);  //set to current time
-//
-//			//pthread_mutex_lock(&ft_lock);
-//			my_forwarding_table.push_back(new_FTE);
-//			//pthread_mutex_unlock(&ft_lock);
+			new_FTE_to_myself -> interface_uid = line_count;
+			new_FTE_to_myself -> remote_VIP_addr = temp_my_VIP_addr;
+			new_FTE_to_myself -> cost = 0;
+			new_FTE_to_myself -> time_last_updated = 0 ;  //set to current time
+
+			//pthread_mutex_lock(&ft_lock);
+			my_forwarding_table.push_back(new_FTE_to_myself);
+			//pthread_mutex_unlock(&ft_lock);
 
 		}
 
@@ -617,10 +631,10 @@ void* node (void* a){
 //	start new thread: clean forwarding table every sec
 
 //	cout<< "\n start cleaning forwarding table" << endl;
-//	if(pthread_create(&clean_ft_thread, NULL, clean_forwarding_table, NULL)) {
-//		fprintf(stderr, "Error creating clean forwarding table thread\n");
-//		return NULL;
-//	}
+	if(pthread_create(&clean_ft_thread, NULL, clean_forwarding_table, NULL)) {
+		fprintf(stderr, "Error creating clean forwarding table thread\n");
+		return NULL;
+	}
 
 	//triggered event: update_forwarding_table();
 
@@ -654,10 +668,13 @@ int routes(){
 	for(int i =0; i< my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
 
-		char str_temp[50];
-		inet_ntop(AF_INET, &(cur->remote_VIP_addr), str_temp, INET_ADDRSTRLEN);
+		if(cur->time_last_updated != 0){ //not myself
+			char str_temp[50];
+			inet_ntop(AF_INET, &(cur->remote_VIP_addr), str_temp, INET_ADDRSTRLEN);
 
-		printf("%s %d %d\n", str_temp ,cur->interface_uid,cur->cost);
+			printf("%s %d %d\n", str_temp ,cur->interface_uid,cur->cost);
+		}
+
 
 	}
 	return 0;
@@ -748,14 +765,14 @@ int main(int argc, char* argv[]){
 
 		if (!strcmp(t,"ifconfig")){
 			// config
-			printf("command is %s\n", t);
+			//printf("command is %s\n", t);
 			ifconfig();
 
 		}
 
 		else if (!strcmp(t,"routes")){
 			// print out routes
-			printf("command is %s\n", t);
+			//printf("command is %s\n", t);
 			routes();
 
 		}
@@ -763,7 +780,7 @@ int main(int argc, char* argv[]){
 		else if (!strcmp(t,"up")){
 			t = strtok(NULL, " ");
 			int up_id = atoi(t);
-			printf("command is %s, bringing up interface id: %d \n", t, up_id);
+			//printf("command is %s, bringing up interface id: %d \n", t, up_id);
 			if(up_interface(up_id)<0){
 				printf("up interface error\n");
 				return 0;
@@ -774,7 +791,7 @@ int main(int argc, char* argv[]){
 			printf("command is %s\n", t);
 			t = strtok(NULL, " ");
 			int down_id = atoi(t);
-			printf("command is %s, taking down interface id: %d \n", t, down_id);
+			//printf("command is %s, taking down interface id: %d \n", t, down_id);
 
 			if(down_interface(down_id)<0){
 				printf("down interface error\n");
@@ -787,13 +804,13 @@ int main(int argc, char* argv[]){
 
 			t = strtok(NULL, " ");
 			char* dest_ip = t;
-			printf("command is send, destination ip address: %s \n", dest_ip);
+			//printf("command is send, destination ip address: %s \n", dest_ip);
 
 			struct in_addr dest_addr;
 			inet_pton(AF_INET, dest_ip, (void*)&dest_addr);
 
 			t = strtok(NULL, "");
-			printf("message :%s\n", t);
+			//printf("message :%s\n", t);
 			char* to_send_msg = t;
 
 			int len = strlen(to_send_msg);
