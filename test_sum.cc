@@ -19,7 +19,18 @@
 
 using namespace std;
 
+bool in_addr_compare(struct in_addr addr1,struct in_addr addr2){
 
+	char addr1_char[50];
+	char addr2_char[50];
+	inet_ntop(AF_INET, &addr1,  addr1_char, INET_ADDRSTRLEN);
+	inet_ntop(AF_INET, &addr2,  addr2_char, INET_ADDRSTRLEN);
+	if(strcmp(addr1_char,addr2_char) == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
 
 
 
@@ -67,6 +78,9 @@ int main(int argc, char* argv[]){
 
 	//get addr out (same code as above)
 	//get str addr from in_addr
+
+
+
 	char str2[50];
 	inet_ntop(AF_INET, &addr3, str2, INET_ADDRSTRLEN);
 	printf("addr from uint32 convert back: %s\n",str2);

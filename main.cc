@@ -240,12 +240,13 @@ void handle_packet(IP_packet* ip_packet){
 
 }
 
-void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VIP_addr){
+void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_VIP_addr){
 
 	int i;
 
 	for( i = 0; i < my_forwarding_table.size(); i++){
-		uint32_t my_dest_addr = ntohl(inet_addr(( my_forwarding_table[i] -> remote_VIP_addr ).c_str()));
+
+		uint32_t my_dest_addr = htonl(my_forwarding_table[i] -> remote_VIP_addr);
 
 		if ( my_dest_addr == new_entry.address ){
 				if ( new_entry.cost + 1 < my_forwarding_table[i] -> cost ) {
@@ -253,16 +254,12 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 					FTE * new_FTE = new FTE;
 					new_FTE -> interface_uid = next_hop_interface_id;
 
-					// convert uint32_t address to string
+					// convert uint32_t address to in_addr
 				    struct in_addr temp_ip_addr;
-				    temp_ip_addr.s_addr = new_entry.address;
-
-					string temp_new_entry_addr (inet_ntoa(temp_ip_addr));
-
-					//    uint32_t cur_addr = ntohs(inet_addr((cur->my_VIP_addr).c_str()));
+				    temp_ip_addr.s_addr = ntohl(new_entry.address);
 
 
-					new_FTE -> remote_VIP_addr = temp_new_entry_addr;
+					new_FTE -> remote_VIP_addr = temp_ip_addr;
 					new_FTE -> cost = new_entry.cost + 1;
 					new_FTE -> time_last_updated = time(NULL);
 
@@ -272,7 +269,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 
 					return;
 
-				} else if ( !strcmp( (my_forwarding_table[i] -> remote_VIP_addr).c_str(), next_hop_VIP_addr.c_str()) ){
+				} else if ( in_addr_compare( (my_forwarding_table[i] -> remote_VIP_addr), next_hop_VIP_addr )){
 
 					//pthread_mutex_lock(&ft_lock);
 
@@ -290,6 +287,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 
 	}
 	if (i == my_forwarding_table.size() ){
+		// found a new route
 		if (my_forwarding_table.size() < 64 ){
 			FTE* new_FTE = new FTE;
 
@@ -297,12 +295,10 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 
 			// convert uint32_t address to string
 		    struct in_addr temp_ip_addr;
-		    temp_ip_addr.s_addr = new_entry.address;
-
-			string temp_new_entry_addr (inet_ntoa(temp_ip_addr));
+		    temp_ip_addr.s_addr = ntohl(new_entry.address);
 
 
-			new_FTE -> remote_VIP_addr = temp_new_entry_addr;
+			new_FTE -> remote_VIP_addr = temp_ip_addr;
 			new_FTE -> cost = new_entry.cost + 1;
 			new_FTE -> time_last_updated = time(NULL);
 
@@ -317,15 +313,15 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 	}
 }
 
-void update_forwarding_table(RIP_packet* RIP, string new_next_hop_VIP_addr){
+void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 	// called by rip response
 	// bellman-ford
 	int numNewRoutes = RIP -> num_entries;
 
 	int next_hop_interface_id = 0;
 	for( int i = 0; i < my_interfaces.size(); i++){
-		if ( !strcmp( (my_interfaces[i]->remote_VIP_addr).c_str() , new_next_hop_VIP_addr.c_str())  ){
-			next_hop_interface_id = i;
+		if ( in_addr_compare( (my_interfaces[i]->remote_VIP_addr) , new_next_hop_VIP_addr ){
+			new_next_hop_interface_id = i;
 			break;
 		}
 	}
@@ -333,14 +329,15 @@ void update_forwarding_table(RIP_packet* RIP, string new_next_hop_VIP_addr){
 	int i;
 
 	for (i = 0 ; i < numNewRoutes ; i++){
-		merge_route( RIP->entries[i] , next_hop_interface_id,  new_next_hop_VIP_addr );
+		merge_route( RIP->entries[i] , new_next_hop_interface_id,  new_next_hop_VIP_addr );
 	}
 
 }
 
 struct RIP_packet* create_RIP_packet(interface* cur_interface){
+	//create a RIP_packet that should be sent to cur_interface, w/ split horizon and poison reverse
 
-	string destination_VIP = cur_interface -> remote_VIP_addr;
+	struct in_addr destination_VIP = cur_interface -> remote_VIP_addr;
 
 	struct RIP_packet* RIP_packet_tosend = new struct RIP_packet;
 
@@ -353,35 +350,35 @@ struct RIP_packet* create_RIP_packet(interface* cur_interface){
 		FTE* cur_FTE = my_forwarding_table[i];
 		//split horizon and poison reverse
 		//find cur_FTE->interface_uid  in the interface table, and if the interface->remote_VIP == cur_interface, poison reverse
-		bool sh_pr = false;
+		bool do_pr = false;
 
 		for (int j = 0; j< my_interfaces.size(); j++){
 			if (cur_FTE -> interface_uid == my_interfaces[j] -> unique_id ){
-				if (!strcmp( (my_interfaces[j] -> remote_VIP_addr).c_str() , destination_VIP.c_str() )){
-					sh_pr = true;
+				if (in_addr_compare( (my_interfaces[j] -> remote_VIP_addr) , destination_VIP )){
+					do_pr = true;
 				}
 			}
 		}
 
-		if (sh_pr){
+		if (do_pr){
 			//set cost = 16 and add to entries[]
-
 			RIP_packet_tosend -> entries[i].cost = 16 ;
 
-			uint32_t temp_entry_addr = ntohl(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			//uint32_t temp_entry_addr = ntohl(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			uint32_t temp_entry_addr = htonl((cur_FTE->remote_VIP_addr).s_addr);
+
 			RIP_packet_tosend -> entries[i].address = temp_entry_addr  ;
 		} else {
 			RIP_packet_tosend -> entries[i].cost = cur_FTE -> cost ;
 
-			uint32_t temp_entry_addr = ntohl(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			uint32_t temp_entry_addr = htonl((cur_FTE->remote_VIP_addr).s_addr);
+
 			RIP_packet_tosend -> entries[i].address = temp_entry_addr  ;
 		}
 	}
 
 	RIP_packet_tosend -> num_entries = temp_num_entries;
 	RIP_packet_tosend -> command = temp_command;
-
-
 
 	return RIP_packet_tosend;
 }
@@ -399,7 +396,7 @@ void* send_rip_response(void* a){
 
 			//send response
 			int t;
-			t = send(((char*)(my_interfaces[i]->remote_VIP_addr).c_str()), (char*) RIP_packet_tosend, sizeof(*RIP_packet_tosend),false,true);
+			t = send( (my_interfaces[i]->remote_VIP_addr), (char*) RIP_packet_tosend, sizeof(*RIP_packet_tosend),false,true);
 
 		}
 		sleep(5);
@@ -593,7 +590,10 @@ int ifconfig(){
 			string down("down");
 			std = down.c_str();
 		}
-		printf("%d %s %s\n",cur->unique_id,cur->my_VIP_addr.c_str(),std);
+
+		char str_temp[50];
+		inet_ntop(AF_INET, &(cur->my_VIP_addr), str_temp, INET_ADDRSTRLEN);
+		printf("%d %s %s\n",cur->unique_id,str_temp,std);
 	}
 	return 0;
 }
@@ -601,22 +601,41 @@ int ifconfig(){
 int routes(){
 	for(int i =0; i< my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
-		printf("%s %d %d\n",cur->remote_VIP_addr.c_str(),cur->interface_uid,cur->cost);
+
+		char str_temp[50];
+		inet_ntop(AF_INET, &(cur->remote_VIP_addr), str_temp, INET_ADDRSTRLEN);
+
+		printf("%s %d %d\n", str_temp ,cur->interface_uid,cur->cost);
+
 	}
 	return 0;
 }
 
 int up_interface(int interface_id){
-	//TODO: should also add FTE into forwarding table
+	struct in_addr addr_to_add;
+	bool found = false;
+
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
-
+			addr_to_add = my_interfaces[i]-> remote_VIP_addr;
 			my_interfaces[i]->status = 1;
 			printf("Interface %d up.\n", my_interfaces[i]->unique_id);
-			return 0;
+			found = true;
 		}
 	}
-	printf("Interface %d not found.\n", interface_id);
+	if(found && (my_forwarding_table.size()<64 )){
+		FTE* new_FTE = new FTE;
+		new_FTE -> remote_VIP_addr = addr_to_add;
+		new_FTE -> interface_uid = interface_id;
+		new_FTE -> cost = 1;
+		new_FTE -> time_last_updated = time(NULL);
+
+		my_forwarding_table.push_back(new_FTE);
+	}
+
+	if(!found){
+		printf("Interface %d not found.\n", interface_id);
+	}
 	return 0;
 }
 
@@ -637,7 +656,10 @@ int down_interface(int interface_id){
 	}
 
 	for (int j = 0; j< my_forwarding_table.size(); j++){
-		//delete FTE from forwarding table
+		//delete FTE from forwarding table if using this interface
+		if (my_forwarding_table[j]->interface_id  == interface_id ){
+			my_forwarding_table.erase(my_forwarding_table.begin()+j);
+		}
 	}
 
 	if(!found) { printf("Interface %d not found.\n", interface_id); }
