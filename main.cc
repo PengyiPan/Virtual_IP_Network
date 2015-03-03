@@ -82,9 +82,28 @@ int update_forwarding_table(RIP_packet* rip);
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
 
-int send(char* des_VIP_addr,char* mes_to_send,bool msg_encapsulated)
+int send(char* des_VIP_addr,char* mes_to_send,int msg_length,bool msg_encapsulated,bool msg_is_RIP)
 {
+	interface* interface_to_use;
+	bool found = 0;
+	for(int i=0;i < my_forwarding_table.size();i++){
+		FTE* cur = my_forwarding_table[i];
+		if(!strcmp((cur->remote_VIP_addr).c_str(),des_VIP_addr)){// can be reach
 
+			for(int j=0;j<my_interfaces.size();j++){
+				if(my_interfaces[j]->unique_id == cur->interface_uid){
+					interface_to_use = my_interfaces[j];
+					found = 1;
+					printf("In send. Found next hop. Interface id: %d\n",cur->interface_uid);
+				}
+			}
+		}
+	}
+
+	if(!found){
+		printf("%s cannot be reached\n",des_VIP_addr);
+	}
+	/*Found which interface to use*/
 
 	if(!msg_encapsulated){
 		/*Msg not encapsulated, need to create IP packet*/
@@ -92,12 +111,28 @@ int send(char* des_VIP_addr,char* mes_to_send,bool msg_encapsulated)
 		struct IP_packet* ip_packet_to_send = new IP_packet;
 		struct ip* ip_header = new ip;
 
-		//ip_header->ip
+		ip_header->ip_dst.s_addr = inet_addr (des_VIP_addr);
+		ip_header->ip_src.s_addr = inet_addr((interface_to_use->my_VIP_addr).c_str());
+
+		if(msg_is_RIP){
+			ip_header->ip_p = htons(200);
+		}else{
+			ip_header->ip_p = htons(0);
+		}
+
+		ip_header->ip_ttl = htons(16);
+
+		ip_header->ip_sum = htons(ip_sum((char*)ip_header, sizeof(*ip_header)));
+
+		ip_packet_to_send->ip_header = *ip_header;
+
+
+		memcpy(ip_packet_to_send->msg,mes_to_send,msg_length);
+
+		mes_to_send = (char*)ip_packet_to_send;
 	}
 
-
-
-
+	/*Finished encapsulation*/
 
 	struct sockaddr_in servaddr;    /* server address */
 
@@ -105,29 +140,19 @@ int send(char* des_VIP_addr,char* mes_to_send,bool msg_encapsulated)
 	memset((char*)&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;
 
-	//===HARD CODE START===
 
 	struct sockaddr_in sa_loc;
 	struct hostent* pLocalHostInfo = gethostbyname("localhost");
 	long LocalHostAddress;
 	memcpy( &LocalHostAddress, pLocalHostInfo->h_addr, pLocalHostInfo->h_length );
 
-	if(!strcmp(des_VIP_addr,"10.10.168.73")){ //sending from A
-		servaddr.sin_port = htons(17001);
-	}
-	else if(!strcmp(des_VIP_addr,"14.230.5.36")){//B forwarding to C
-		servaddr.sin_port = htons(17002);
-	}
-	else{
-		printf("No port to send in else\n");
-	}
+	servaddr.sin_port = htons(interface_to_use->remote_port);
 
 	servaddr.sin_addr.s_addr = LocalHostAddress;
 
-	//===HARD CODE END===
 
 	if (sendto(u_socket, mes_to_send, strlen(mes_to_send), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-		perror("sendto failed");
+		perror("send to failed\n");
 		return 0;
 	}
 
@@ -151,7 +176,7 @@ void forward_or_print(IP_packet* packet){
 	/*Des addr not found in infterfaces, forward*/
 	char* next_addr = inet_ntoa(ip->ip_dst);
 	printf("Forwarding to %s\n",next_addr);
-	send((char*)&next_addr, (char*)packet,true);
+	send((char*)&next_addr, (char*)packet,sizeof(*packet),true,false);
 }
 
 void handle_packet(IP_packet* ip_packet){
@@ -575,8 +600,8 @@ int main(int argc, char* argv[]){
 			t = strtok(NULL, "");
 			printf("message :%s\n", t);
 			char* to_send_msg = t;
-
-			send(dest_ip,to_send_msg,false);
+			string temp(to_send_msg);
+			send(dest_ip,to_send_msg,temp.size(),false,false);
 
 		}
 
