@@ -77,7 +77,7 @@ struct IP_packet {
 
 
 int ifconfig();
-int update_forwarding_table(RIP_packet* rip, string new_next_hop_VIP_addr );
+void update_forwarding_table(RIP_packet* RIP, string new_next_hop_VIP_addr);
 
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
@@ -210,7 +210,8 @@ void handle_packet(IP_packet* ip_packet){
 			}
 			else if(type == 200){
 				/*Payload is RIP, process*/
-				update_forwarding_table((RIP_packet*)&(ip_packet->msg));
+				string addr_str = inet_ntoa(ip->ip_src) ;
+				update_forwarding_table((RIP_packet*)&(ip_packet->msg),addr_str);
 
 			}else{
 				printf("Payload is neither data nor RIP, dropped\n");
@@ -380,7 +381,7 @@ void* send_rip_response(void* a){
 
 			//send response
 			int t;
-			t = send(((char*)(my_interfaces[i]->remote_VIP_addr).c_str()), (char*) RIP_packet_tosend, false);
+			t = send(((char*)(my_interfaces[i]->remote_VIP_addr).c_str()), (char*) RIP_packet_tosend, sizeof(*RIP_packet_tosend),false,true);
 
 		}
 		sleep(5);
