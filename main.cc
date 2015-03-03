@@ -263,7 +263,10 @@ void* send_rip_response(void* a){
 			RIP_packet* RIP_packet_tosend = create_RIP_packet(cur_interface);
 
 			printf("created a RIP packet tosend;\n");
+
 			//send response
+			int t;
+			t = send((my_interface[i]->remote_VIP_address).c_str(), (char*) RIP_packet_tosend, false);
 
 		}
 		sleep(5);
