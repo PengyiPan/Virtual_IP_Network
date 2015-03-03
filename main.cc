@@ -52,15 +52,20 @@ struct forwarding_table_entry{
 typedef struct forwarding_table_entry FTE;
 
 /*The packet that will be encapsulated in IP packet as payload*/
+struct entry_t{
+	uint32_t cost;
+	uint32_t address;
+};
+typedef struct entry_t entry;
+
 
 struct RIP_packet{
 	uint16_t command;
 	uint16_t num_entries;
-	struct{
-		uint32_t cost;
-		uint32_t address;
-	} entries[64];
+	entry entries[64];
 };
+
+typedef struct RIP_packet RIP_packet;
 
 /*The packet that we send using UDP as the link layer*/
 
@@ -200,38 +205,64 @@ int update_forwarding_table(RIP_packet* rip){
 	return 0;
 }
 
+struct RIP_packet* create_RIP_packet(interface* cur_interface){
+
+	string destination_VIP = cur_interface -> remote_VIP_addr;
+
+	struct RIP_packet* RIP_packet_tosend = new struct RIP_packet;
+
+	uint16_t temp_num_entries = my_forwarding_table.size();
+	uint16_t temp_command = 2;
+
+	//entry temp_entries[64];
+
+	for (int i = 0; i < my_forwarding_table.size(); i++){
+		FTE* cur_FTE = my_forwarding_table[i];
+		//split horizon and poison reverse
+		//find cur_FTE->interface_uid  in the interface table, and if the interface->remote_VIP == cur_interface, poison reverse
+		bool sh_pr = false;
+
+		for (int j = 0; j< my_interfaces.size(); j++){
+			if (cur_FTE -> interface_uid == my_interfaces[j] -> unique_id ){
+				if (!strcmp( (my_interfaces[j] -> remote_VIP_addr).c_str() , destination_VIP.c_str() )){
+					sh_pr = true;
+				}
+			}
+		}
+
+		if (sh_pr){
+			//set cost = 16 and add to entries[]
+
+			RIP_packet_tosend -> entries[i].cost = 16 ;
+
+			uint32_t temp_entry_addr = ntohs(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			RIP_packet_tosend -> entries[i].address = temp_entry_addr  ;
+		} else {
+			RIP_packet_tosend -> entries[i].cost = cur_FTE -> cost ;
+
+			uint32_t temp_entry_addr = ntohs(inet_addr(( cur_FTE -> remote_VIP_addr ).c_str()));
+			RIP_packet_tosend -> entries[i].address = temp_entry_addr  ;
+		}
+	}
+
+	RIP_packet_tosend -> num_entries = temp_num_entries;
+	RIP_packet_tosend -> command = temp_command;
+
+
+
+	return RIP_packet_tosend;
+}
+
 void* send_rip_response(void* a){
 	//send stuff in your forwarding table to your neighbors every five seconds
 
-	// todo: w/ split horizon and poison reverse
 	while(1){
-		/*struct RIP_packet{
-			uint16_t command;
-			uint16_t num_entries;
-			struct{
-				uint32_t cost;
-				uint32_t address;
-			} entries[num_entries];
-		};*/
 		for (int i = 0; i < my_interfaces.size(); i++){
 			interface* cur_interface = my_interfaces[i];
 
-			RIP_packet* RIP_packet_tosend = new RIP_packet ;
-			uint16_t temp_num_entries = my_forwarding_table.size();
-			uint16_t temp_command = 2;
-
-			for (int j = 0; j < my_forwarding_table.size(); j++){
-				FTE* cur_FTE = my_forwarding_table[j];
-
-
-			}
-
-			//create RIP_packet_tosend
-			RIP_packet_tosend->num_entries = temp_num_entries;
-			RIP_packet_tosend->command = temp_command;
+			RIP_packet* RIP_packet_tosend = create_RIP_packet(cur_interface);
 
 			printf("created a RIP packet tosend;\n");
-
 			//send response
 
 		}
