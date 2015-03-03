@@ -82,13 +82,31 @@ void update_forwarding_table(RIP_packet* RIP, string new_next_hop_VIP_addr);
 vector<interface*> my_interfaces(0);
 vector<FTE*> my_forwarding_table(0);
 
-int send(char* des_VIP_addr,char* mes_to_send,int msg_length,bool msg_encapsulated,bool msg_is_RIP)
+/*Compare two in_addr struct, return true if the addr is the same*/
+bool in_addr_compare(struct in_addr addr1,struct in_addr addr2){
+
+	char addr1_char[50];
+	char addr2_char[50];
+	inet_ntop(AF_INET, &addr1,  addr1_char, INET_ADDRSTRLEN);
+	inet_ntop(AF_INET, &addr2,  addr2_char, INET_ADDRSTRLEN);
+	if(strcmp(addr1_char,addr2_char) == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_encapsulated,bool msg_is_RIP)
 {
 	interface* interface_to_use;
 	bool found = 0;
 	for(int i=0;i < my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
-		if(!strcmp((cur->remote_VIP_addr).c_str(),des_VIP_addr)){// can be reach
+		char addr1_char[50];
+		char addr2_char[50];
+		inet_ntop(AF_INET, &des_VIP_addr,  addr1_char, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &(cur->remote_VIP_addr),  addr2_char, INET_ADDRSTRLEN);
+		if(strcmp(addr1_char,addr2_char) == 0){// can be reach
 
 			for(int j=0;j<my_interfaces.size();j++){
 				if(my_interfaces[j]->unique_id == cur->interface_uid){
