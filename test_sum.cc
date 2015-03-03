@@ -97,4 +97,19 @@ int main(int argc, char* argv[]){
 
 
 
+
+
+	printf("\t\t **** test time difference \t\t **** \n");
+
+	time_t timer = time(NULL);
+
+	double seconds = difftime(timer, NULL);
+
+	if(seconds >= 8 ){
+		cout<<"erasing FTE. should not be printed"<<endl;
+
+	}
+
+
+
 }
