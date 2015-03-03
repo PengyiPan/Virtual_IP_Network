@@ -33,30 +33,23 @@ int main(int argc, char* argv[]){
 
 	struct in_addr addr;
 
-	char* in_addr = "192.168.0.0";
+	char* in_addr = "192.168.0.4";
 
 	// store this IP address in sa:
 	inet_pton(AF_INET, in_addr, (void*)&addr);
 
-	//addr = inet_addr(in_addr);
+
+	//get it back
+	char str[50];
+
+	inet_ntop(AF_INET, &addr, str, INET_ADDRSTRLEN);
 
 	header->ip_src = addr;
 
 	int sum = ip_sum((char*)header,sizeof(*header));
 
-
-
-
-
-
-//	string test_str("askldjghasjdhg");
-//	int size = test_str.size();
-//	int sum = ip_sum((char*)&test_str,size);
-
-	//this doesn't work!!!!!
-
-
 	printf("sum is: %d\n",sum);
+	printf("addr back: %s\n",str);
 
 
 }
