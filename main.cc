@@ -567,6 +567,17 @@ void read_in(){
 			my_forwarding_table.push_back(new_FTE);
 			//pthread_mutex_unlock(&ft_lock);
 
+			FTE* new_FTE_to_myself = new FTE;
+
+//			new_FTE_to_myself -> interface_uid = line_count;
+//			new_FTE -> remote_VIP_addr = temp_remote_VIP_addr;
+//			new_FTE -> cost = 1;
+//			new_FTE -> time_last_updated = time(NULL);  //set to current time
+//
+//			//pthread_mutex_lock(&ft_lock);
+//			my_forwarding_table.push_back(new_FTE);
+//			//pthread_mutex_unlock(&ft_lock);
+
 		}
 
 		line_count ++;
@@ -597,13 +608,14 @@ void* node (void* a){
 
 	//send rip_request
 
-	//start new thread: send_rip_response every 5 sec
-//	if(pthread_create(&send_rip_response_thread, NULL, periodic_send_rip_response, NULL)) {
-//		fprintf(stderr, "Error creating clean forwarding table thread\n");
-//		return NULL;
-//	}
+//	start new thread: send_rip_response every 5 sec
+	if(pthread_create(&send_rip_response_thread, NULL, periodic_send_rip_response, NULL)) {
+		fprintf(stderr, "Error creating clean forwarding table thread\n");
+		return NULL;
+	}
 
-	//start new thread: clean forwarding table every sec
+//	start new thread: clean forwarding table every sec
+
 //	cout<< "\n start cleaning forwarding table" << endl;
 //	if(pthread_create(&clean_ft_thread, NULL, clean_forwarding_table, NULL)) {
 //		fprintf(stderr, "Error creating clean forwarding table thread\n");
@@ -680,8 +692,6 @@ int up_interface(int interface_id){
 }
 
 int down_interface(int interface_id){
-	//TODO: Close the UDP socket
-	//TODO: should also delete FTE from forwarding table
 	struct in_addr addr_to_erase;
 
 	bool found = false;
