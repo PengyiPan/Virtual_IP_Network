@@ -19,7 +19,18 @@
 
 using namespace std;
 
+bool in_addr_compare(struct in_addr addr1,struct in_addr addr2){
 
+	char addr1_char[50];
+	char addr2_char[50];
+	inet_ntop(AF_INET, &addr1,  addr1_char, INET_ADDRSTRLEN);
+	inet_ntop(AF_INET, &addr2,  addr2_char, INET_ADDRSTRLEN);
+	if(strcmp(addr1_char,addr2_char) == 0){
+		return true;
+	}else{
+		return false;
+	}
+}
 
 
 
@@ -33,16 +44,18 @@ int main(int argc, char* argv[]){
 
 	struct in_addr addr1;
 
-	char* in_addr1 = "192.168.0.4";
+	string temp = "192.222.222.222";
+	char* in_addr1 = "192.2.2.2";
 	char* in_addr2 = "4.0.168.192";
 
 	// store this char* IP address in addr1:
+	//inet_pton(AF_INET, temp.c_str(), (void*)&addr1);
 	inet_pton(AF_INET, in_addr1, (void*)&addr1);
 
 	//get str addr from in_addr addr1
 	char str[50];
 	inet_ntop(AF_INET, &addr1, str, INET_ADDRSTRLEN);
-	printf("addr from in_addr: %s\n",str);
+	printf("addr from in_addr1: %s\n",str);
 
 
 	struct in_addr addr2;
@@ -64,6 +77,8 @@ int main(int argc, char* argv[]){
 	// uint32_t
 	struct in_addr addr3;
 	addr3.s_addr = ntohl(addr_32);
+
+	printf("test compare: %d\n",in_addr_compare(addr3,addr1));
 
 	//get addr out (same code as above)
 	//get str addr from in_addr

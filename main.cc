@@ -102,11 +102,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	bool found = 0;
 	for(int i=0;i < my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
-		char addr1_char[50];
-		char addr2_char[50];
-		inet_ntop(AF_INET, &des_VIP_addr,  addr1_char, INET_ADDRSTRLEN);
-		inet_ntop(AF_INET, &(cur->remote_VIP_addr),  addr2_char, INET_ADDRSTRLEN);
-		if(strcmp(addr1_char,addr2_char) == 0){// can be reach
+		if(in_addr_compare(des_VIP_addr,cur->remote_VIP_addr)){// can be reach
 
 			for(int j=0;j<my_interfaces.size();j++){
 				if(my_interfaces[j]->unique_id == cur->interface_uid){
@@ -129,23 +125,23 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 		struct IP_packet* ip_packet_to_send = new IP_packet;
 		struct ip* ip_header = new ip;
 
-		ip_header->ip_dst.s_addr = inet_addr (des_VIP_addr);
-		ip_header->ip_src.s_addr = inet_addr((interface_to_use->my_VIP_addr).c_str());
+		ip_header->ip_dst = des_VIP_addr;
+		ip_header->ip_src = interface_to_use->my_VIP_addr;
 
 		if(msg_is_RIP){
-			ip_header->ip_p = htons(200);
+			ip_header->ip_p = 200;
 		}else{
-			ip_header->ip_p = htons(0);
+			ip_header->ip_p = 0;
 		}
 
-		ip_header->ip_ttl = htons(16);
+		ip_header->ip_ttl = 16;
 
 		ip_header->ip_sum = htons(ip_sum((char*)ip_header, sizeof(*ip_header)));
 
-		ip_packet_to_send->ip_header = *ip_header;
+		memcpy(&(ip_packet_to_send->ip_header),ip_header,sizeof(*ip_header));
+		//ip_packet_to_send->ip_header = *ip_header;
 
-
-		memcpy(ip_packet_to_send->msg,mes_to_send,msg_length);
+		memcpy(&(ip_packet_to_send->msg),mes_to_send,msg_length);
 
 		mes_to_send = (char*)ip_packet_to_send;
 	}
@@ -169,8 +165,8 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	servaddr.sin_addr.s_addr = LocalHostAddress;
 
 
-	if (sendto(u_socket, mes_to_send, strlen(mes_to_send), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-		perror("send to failed\n");
+	if (sendto(u_socket, mes_to_send, sizeof(IP_packet), 0, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+		perror("SEND failed\n");
 		return 0;
 	}
 
@@ -181,20 +177,20 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 void forward_or_print(IP_packet* packet){
 
 	struct ip* ip = &(packet->ip_header);
-	uint32_t addr = ntohl(ip->ip_dst.s_addr);
+	struct in_addr des_addr = ip->ip_dst;
 
 	for(int i=0;i<my_interfaces.size();i++){
 		interface* cur = my_interfaces[i];
-		uint32_t cur_addr = ntohl(inet_addr((cur->my_VIP_addr).c_str()));
-		if(addr == cur_addr){
+		if(in_addr_compare(des_addr,cur->my_VIP_addr)){
 			printf("received: %s\n",packet->msg);
 			return;
 		}
 	}
 	/*Des addr not found in infterfaces, forward*/
-	char* next_addr = inet_ntoa(ip->ip_dst);
-	printf("Forwarding to %s\n",next_addr);
-	send((char*)&next_addr, (char*)packet,sizeof(*packet),true,false);
+	char str[50];
+	inet_ntop(AF_INET, &des_addr, str, INET_ADDRSTRLEN);
+	printf("Forwarding to %s\n",str);
+	send(des_addr, (char*)packet,sizeof(*packet),true,false);
 }
 
 void handle_packet(IP_packet* ip_packet){
@@ -207,10 +203,10 @@ void handle_packet(IP_packet* ip_packet){
 
 	uint16_t cal_cksum = ntohs(ip_sum((char*)ip,sizeof(*ip)));
 	if(rcv_cksum != cal_cksum) {
-		printf("***checksum mismatch***\n");
+		printf("***Checksum Mismatch***\n");
 		/* discard packet */
 	} else {
-		printf("***checksum match***\n");
+		printf("***Checksum Match***\n");
 		uint8_t ttl = ip->ip_ttl; /* check if zero */
 		if(ttl <= 1) {
 			/* packet: timeout drop packet*/
@@ -221,15 +217,15 @@ void handle_packet(IP_packet* ip_packet){
 			ip->ip_sum = htons(ip_sum((char*)ip, sizeof(*ip)));
 			/* IP packet manipulation complete */
 
-			uint8_t type = ntohs(ip->ip_p);
+			uint8_t type = ip->ip_p;
 			if(type == 0){
 				/*Payload is test data*/
 				forward_or_print(ip_packet);
 			}
 			else if(type == 200){
 				/*Payload is RIP, process*/
-				string addr_str = inet_ntoa(ip->ip_src) ;
-				update_forwarding_table((RIP_packet*)&(ip_packet->msg),addr_str);
+				struct in_addr src_addr = ip->ip_src ;
+				update_forwarding_table((RIP_packet*)&(ip_packet->msg),in_addr);
 
 			}else{
 				printf("Payload is neither data nor RIP, dropped\n");
@@ -496,17 +492,22 @@ void read_in(){
 		if (line_buffer.length() == 0)continue;
 
 		if(line_count == 0){
-			//my_port = atoi(line_buffer.substr(line_buffer.find(":")).c_str());
+
 			my_port = atoi(line_buffer.substr(line_buffer.find(":")+1).c_str());
 		}
 		else{
 			int temp_remote_port = atoi(line_buffer.substr(line_buffer.find(":")+1,line_buffer.find(" ")).c_str());
 			line_buffer = line_buffer.substr(line_buffer.find(" ")+1);
 
-			string temp_my_VIP_addr = line_buffer.substr(0,line_buffer.find(" "));
+			struct in_addr temp_my_VIP_addr = new in_addr;
+			string temp_my_VIP_addr_str = line_buffer.substr(0,line_buffer.find(" "));
+			inet_pton(AF_INET, temp_my_VIP_addr_str.c_str(), (void*)&temp_my_VIP_addr);
+
 			line_buffer = line_buffer.substr(line_buffer.find(" ")+1);
 
-			string temp_remote_VIP_addr = line_buffer;
+			struct in_addr temp_remote_VIP_addr = new in_addr;
+			string temp_remote_VIP_addr_str = line_buffer;
+			inet_pton(AF_INET, temp_remote_VIP_addr_str.c_str(), (void*)&temp_remote_VIP_addr);
 
 			interface* new_interface = new interface;
 
@@ -711,8 +712,8 @@ int main(int argc, char* argv[]){
 			t = strtok(NULL, "");
 			printf("message :%s\n", t);
 			char* to_send_msg = t;
-			string temp(to_send_msg);
-			send(dest_ip,to_send_msg,temp.size(),false,false);
+
+			send(dest_ip,to_send_msg,strlen(to_send_msg)),false,false);
 
 		}
 
