@@ -104,7 +104,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	bool found = 0;
 	for(int i=0;i < my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
-		if(in_addr_compare(des_VIP_addr,cur->remote_VIP_addr)){// can be reach
+		if(in_addr_compare(des_VIP_addr,cur->remote_VIP_addr) && (cur->cost < 16)){// can be reach
 
 			for(int j=0;j<my_interfaces.size();j++){
 				if(my_interfaces[j]->unique_id == cur->interface_uid){
@@ -196,7 +196,7 @@ void forward_or_print(IP_packet* packet){
 	/*Des addr not found in infterfaces, forward*/
 	char str[50];
 	inet_ntop(AF_INET, &des_addr, str, INET_ADDRSTRLEN);
-	printf("Forwarding to %s\n",str);
+	printf("=======Forwarding to %s==========\n",str);
 	send(des_addr, (char*)packet,sizeof(struct IP_packet),true,false);
 }
 
