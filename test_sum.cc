@@ -74,7 +74,7 @@ int main(int argc, char* argv[]){
 	//in_addr to uint32_t
 	uint32_t addr_32 = htonl(addr1.s_addr);
 
-	// uint32_t
+	// uint32_t back to in_addr
 	struct in_addr addr3;
 	addr3.s_addr = ntohl(addr_32);
 
@@ -82,6 +82,9 @@ int main(int argc, char* argv[]){
 
 	//get addr out (same code as above)
 	//get str addr from in_addr
+
+
+
 	char str2[50];
 	inet_ntop(AF_INET, &addr3, str2, INET_ADDRSTRLEN);
 	printf("addr from uint32 convert back: %s\n",str2);
