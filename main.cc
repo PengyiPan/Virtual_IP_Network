@@ -94,7 +94,7 @@ int send(char* des_VIP_addr,char* mes_to_send,int msg_length,bool msg_encapsulat
 				if(my_interfaces[j]->unique_id == cur->interface_uid){
 					interface_to_use = my_interfaces[j];
 					found = 1;
-					printf("In send. Found next hop. Interface id: %d\n",cur->interface_uid);
+					//printf("In send. Found next hop. Interface id: %d\n",cur->interface_uid);
 				}
 			}
 		}
@@ -248,20 +248,20 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 					new_FTE -> cost = new_entry.cost + 1;
 					new_FTE -> time_last_updated = time(NULL);
 
-					pthread_mutex_lock(&ft_lock);
+					//pthread_mutex_lock(&ft_lock);
 					my_forwarding_table[i] = new_FTE;
-					pthread_mutex_unlock(&ft_lock);
+					//pthread_mutex_unlock(&ft_lock);
 
 					return;
 
 				} else if ( !strcmp( (my_forwarding_table[i] -> remote_VIP_addr).c_str(), next_hop_VIP_addr.c_str()) ){
 
-					pthread_mutex_lock(&ft_lock);
+					//pthread_mutex_lock(&ft_lock);
 
 					my_forwarding_table[i] -> interface_uid = next_hop_interface_id;
 					my_forwarding_table[i] -> time_last_updated = time(NULL);
 
-					pthread_mutex_unlock(&ft_lock);
+					//pthread_mutex_unlock(&ft_lock);
 
 					return;
 
@@ -288,9 +288,9 @@ void merge_route(entry new_entry , int next_hop_interface_id, string next_hop_VI
 			new_FTE -> cost = new_entry.cost + 1;
 			new_FTE -> time_last_updated = time(NULL);
 
-			pthread_mutex_lock(&ft_lock);
+			//pthread_mutex_lock(&ft_lock);
 			my_forwarding_table.push_back( new_FTE );
-			pthread_mutex_unlock(&ft_lock);
+			//pthread_mutex_unlock(&ft_lock);
 
 			return;
 		} else {
@@ -409,11 +409,11 @@ void* clean_forwarding_table(void* a){
 			seconds = difftime(timer, FTE_last_updated_time);
 			//printf("check sec \n");
 
-			if(seconds >= 10000 ){
+			if(seconds >= 8 ){
 				//delete from forwarding table
-				pthread_mutex_lock(&ft_lock);
+				//pthread_mutex_lock(&ft_lock);
 				my_forwarding_table.erase(my_forwarding_table.begin()+i);
-				pthread_mutex_unlock(&ft_lock);
+				//pthread_mutex_unlock(&ft_lock);
 
 			}
 		}
@@ -508,9 +508,9 @@ void read_in(){
 			new_FTE -> cost = 1;
 			new_FTE -> time_last_updated = time(NULL);  //set to current time
 
-			pthread_mutex_lock(&ft_lock);
+			//pthread_mutex_lock(&ft_lock);
 			my_forwarding_table.push_back(new_FTE);
-			pthread_mutex_unlock(&ft_lock);
+			//pthread_mutex_unlock(&ft_lock);
 
 		}
 
