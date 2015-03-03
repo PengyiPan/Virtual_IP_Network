@@ -120,6 +120,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 		char str[50];
 		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
 		printf("%s cannot be reached\n",str);
+		return 0;
 	}
 	/*Found which interface to use*/
 
@@ -250,6 +251,8 @@ void handle_packet(IP_packet* ip_packet){
 void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_VIP_addr){
 
 	int i;
+
+
 
 	for( i = 0; i < my_forwarding_table.size(); i++){
 
