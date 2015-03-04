@@ -79,6 +79,9 @@ pthread_mutex_t ft_lock;			 /* The lock for forwarding table */
 bool init_finished = false;
 bool update_table_changed = false;
 
+bool show_forwarding_info = true;
+bool forwarding_table_display = true;
+
 uint16_t my_port;					 /* The unique port number for the node */
 
 vector<interface*> my_interfaces(0); 	/* Interfaces */
@@ -302,9 +305,13 @@ void forward_or_print(IP_packet* packet){
 	char str2[50];
 	inet_ntop(AF_INET, &des_addr, str2, INET_ADDRSTRLEN);
 
-	printf("\n=======Forwarding to %s==========\n",str2);
+	if(show_forwarding_info){
 
-	printf("===Forwarder ip_sum: %d ttl: %d\n\n",ip->ip_sum,ip->ip_ttl);
+		printf("\n=======Forwarding to %s==========\n",str2);
+
+		printf("===Forwarder ip_sum: %d ttl: %d\n\n",ip->ip_sum,ip->ip_ttl);
+
+	}
 	send(des_addr, (char*)packet,sizeof(struct IP_packet),true,false);
 }
 
@@ -598,10 +605,13 @@ void* clean_forwarding_table(void* a){
 		pthread_mutex_lock(&ft_lock);
 
 		vector<FTE*>::iterator it = my_forwarding_table.begin();
+
+		if (forwarding_table_display){
 		printf("\n=============START=========================\n");
 		printf("Forwarding table size: %zu\n",my_forwarding_table.size()-my_interfaces.size());
 		routes(true);
 		printf("===============END=======================\n\n");
+		}
 
 		  while(it != my_forwarding_table.end()) {
 
@@ -1016,6 +1026,30 @@ int main(int argc, char* argv[]){
 			int len = strlen(to_send_msg);
 
 			send(dest_addr,to_send_msg,len,false,false);
+
+		}
+
+		else if (!strcmp(t,"show_forwarding_info")){
+			t = strtok(NULL, "");
+						//printf("message :%s\n", t);
+			if (!strcmp(t,"on")){
+				show_forwarding_info = true;
+			} else if (!strcmp(t,"off")){
+				show_forwarding_info = false;
+			} else {
+				printf("Unrecognized command. Please retry.\nTo turn on show_forwarding_info, command is 'show_forwarding_info on'\n");
+			}
+		}
+
+		else if (!strcmp(t,"routing_table_display")){
+			t = strtok(NULL, "");
+			if (!strcmp(t,"on")){
+				forwarding_table_display = true;
+			} else if (!strcmp(t,"off")){
+				forwarding_table_display = false;
+			} else {
+				printf("Unrecognized command. Please retry.\nTo turn on routing_table_display, command is 'routing_table_display on'\n");
+			}
 
 		}
 
