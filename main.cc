@@ -683,7 +683,7 @@ void* start_receive_service(void* a){
 	}
 
 	init_finished = true;
-	printf("Init finished\n");
+	//printf("Init finished\n");
 	triggered_RIP_request_sending();
 
 	/* now loop, receiving data and printing what we received */

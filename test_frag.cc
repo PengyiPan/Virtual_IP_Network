@@ -19,6 +19,7 @@
 
 using namespace std;
 
+// max payload  = MTU(set by user) - header size
 #define IP_PACKET_MAX_PAYLOAD (1336)
 
 struct IP_packet {
@@ -27,7 +28,11 @@ struct IP_packet {
 };
 
 
-void segmentation(char msg[],int msg_length){
+vector<IP_packet*> message_to_be_assembly(0);
+
+vector< vector<IP_packet*> >message_pool (0);  // size = number of ID s.
+
+void fragmentation(char msg[],int msg_length){
 
 	int num_of_packet = msg_length/IP_PACKET_MAX_PAYLOAD;
 	if(msg_length%IP_PACKET_MAX_PAYLOAD != 0) num_of_packet++;
@@ -68,6 +73,22 @@ void segmentation(char msg[],int msg_length){
 }
 
 void reassembly(){
+	// check id to know which message this fragments belong to
+
+	// put the fragments into the corresponding id's pool
+
+	// check whether you have received all fragments needed
+
+	// check whether time to live < 0, if yes, drop all fragments in this pool
+
+	// check more_fragment bit, if no more, assembly
+
+
+}
+
+void* clean_message_pool(void* a){
+	// loop through vector< vector<IP_packet*> >message_pool,
+	//clear the space if expires
 
 }
 
@@ -85,8 +106,16 @@ int main(int argc, char* argv[]){
 	printf("Test msg length is %d bytes\n",msg_length);
 
 	if(msg_length > IP_PACKET_MAX_PAYLOAD){
-		segmentation(msg,msg_length);
+		fragmentation(msg,msg_length);
 	}
+
+	pthread_t clean_thread;
+
+	if(pthread_create(&clean_thread, NULL, clean_message_pool, NULL)) {
+		fprintf(stderr, "Error creating clean thread\n");
+		return 0;
+	}
+
 
 
 
