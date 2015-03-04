@@ -79,8 +79,8 @@ pthread_mutex_t ft_lock;			 /* The lock for forwarding table */
 bool init_finished = false;
 bool update_table_changed = false;
 
-bool show_forwarding_info = false;
-bool forwarding_table_display = false;
+bool display_runtime_info = false;
+bool display_forwarding_table = false;
 
 uint16_t my_port;					 /* The unique port number for the node */
 
@@ -145,10 +145,10 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 		interface* cur = my_interfaces[i];
 		if(in_addr_compare(des_VIP_addr,cur->my_VIP_addr)){
 			if(cur->status == 0){
-				printf("^^^ Cannot send to myself. Interfaces down. ^^^\n");
+			    if(display_runtime_info) printf("^^^ Cannot send to myself. Interfaces down. ^^^\n");
 				return 0;
 			}
-			printf("Sending msg to myself: %s\n",mes_to_send);
+			printf("\nSent msg to myself: %s\n",mes_to_send);
 			return 0;
 		}
 	}
@@ -197,7 +197,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	if(interface_to_use->status == 0){
 		char str[50];
 		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
-		printf("\n=== Cannot send to %s. Interfaces %d down. ===\n\n",str,interface_to_use->unique_id);
+		if(display_runtime_info) printf("\n=== Cannot send to %s. Interfaces %d down. ===\n\n",str,interface_to_use->unique_id);
 		return 0;
 	}
 
@@ -305,7 +305,7 @@ void forward_or_print(IP_packet* packet){
 	char str2[50];
 	inet_ntop(AF_INET, &des_addr, str2, INET_ADDRSTRLEN);
 
-	if(show_forwarding_info){
+	if(display_runtime_info){
 
 		printf("\n=======Forwarding to %s==========\n",str2);
 
@@ -479,8 +479,9 @@ void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 	else if(command == 2){
 		char str[50];
 		inet_ntop(AF_INET, &new_next_hop_VIP_addr, str, INET_ADDRSTRLEN);
-
-		printf("****++++ Received RIP packet from %s\n",str);
+		if(display_runtime_info){
+		printf("****++++ Received RIP packet from %s ++++****\n",str);
+		}
 		//got response, update
 		pthread_mutex_lock(&ft_lock);
 		update_forwarding_table(RIP,new_next_hop_VIP_addr);
@@ -606,7 +607,7 @@ void* clean_forwarding_table(void* a){
 
 		vector<FTE*>::iterator it = my_forwarding_table.begin();
 
-		if (forwarding_table_display){
+		if (display_forwarding_table){
 		printf("\n=============START=========================\n");
 		printf("Forwarding table size: %zu\n",my_forwarding_table.size()-my_interfaces.size());
 		routes(true);
@@ -926,7 +927,7 @@ int down_interface(int interface_id){
 	}
 
 	if(!found) {
-		printf("Interface %d not found.Cant down\n", interface_id);
+		printf("Interface %d not found. Cannot down\n", interface_id);
 		return 0;
 	}
 
@@ -976,6 +977,12 @@ int main(int argc, char* argv[]){
 		char *t;
 		t = strtok(command, " ");
 
+		if (t == NULL){
+			printf("Empty Command.\nType 'help' to view user manual.\n");
+			continue;
+		}
+
+
 		if (!strcmp(t,"ifconfig")){
 
 			ifconfig();
@@ -989,6 +996,12 @@ int main(int argc, char* argv[]){
 
 		else if (!strcmp(t,"up")){
 			t = strtok(NULL, " ");
+
+			if (t == NULL){
+				printf("WARNING: Missing an argument after 'up'\nType 'help' to view user manual.\n");
+				continue;
+			}
+
 			int up_id = atoi(t);
 			//printf("command is %s, bringing up interface id: %d \n", t, up_id);
 			if(up_interface(up_id)<0){
@@ -999,7 +1012,13 @@ int main(int argc, char* argv[]){
 
 		else if (!strcmp(t,"down")){
 			//printf("command is %s\n", t);
+
 			t = strtok(NULL, " ");
+
+			if (t == NULL){
+				printf("WARNING: missing an argument after 'down'\nType 'help' to view user manual.\n");
+				continue;
+			}
 			int down_id = atoi(t);
 			//printf("command is %s, taking down interface id: %d \n", t, down_id);
 
@@ -1013,6 +1032,11 @@ int main(int argc, char* argv[]){
 		else if (!strcmp(t,"send")){
 
 			t = strtok(NULL, " ");
+
+			if (t == NULL){
+				printf("WARNING: Missing two arguments after 'send'\nType 'help' to view user manual.\n");
+				continue;
+			}
 			char* dest_ip = t;
 			//printf("command is send, destination ip address: %s \n", dest_ip);
 
@@ -1021,6 +1045,10 @@ int main(int argc, char* argv[]){
 
 			t = strtok(NULL, "");
 			//printf("message :%s\n", t);
+			if (t == NULL){
+				printf("WARNING: Missing an argument after 'send'\nType 'help' to view user manual.\n");
+				continue;
+			}
 			char* to_send_msg = t;
 
 			int len = strlen(to_send_msg);
@@ -1029,26 +1057,37 @@ int main(int argc, char* argv[]){
 
 		}
 
-		else if (!strcmp(t,"show_forwarding_info")){
+		else if (!strcmp(t,"disinfo")){
 			t = strtok(NULL, "");
-						//printf("message :%s\n", t);
+
+			if (t == NULL){
+				printf("WARNING: Missing an argument after 'disinfo'.\nType 'help' to view user manual.\n");
+				continue;
+			}
+
 			if (!strcmp(t,"on")){
-				show_forwarding_info = true;
+				display_runtime_info = true;
 			} else if (!strcmp(t,"off")){
-				show_forwarding_info = false;
+				display_runtime_info = false;
 			} else {
-				printf("Unrecognized command. Please retry.\nTo turn on show_forwarding_info, command is 'show_forwarding_info on'\n");
+				printf("Unrecognized command. Please retry.\nType 'help' to view user manual.\n");
 			}
 		}
 
-		else if (!strcmp(t,"routing_table_display")){
+		else if (!strcmp(t,"dft")){
 			t = strtok(NULL, "");
+
+			if (t == NULL){
+				printf("WARNING: Missing an argument after 'dft'. 'on' or 'off'?\nType 'help' to view user manual.\n");
+				continue;
+			}
+
 			if (!strcmp(t,"on")){
-				forwarding_table_display = true;
+				display_forwarding_table = true;
 			} else if (!strcmp(t,"off")){
-				forwarding_table_display = false;
+				display_forwarding_table = false;
 			} else {
-				printf("Unrecognized command. Please retry.\nTo turn on routing_table_display, command is 'routing_table_display on'\n");
+				printf("Unrecognized command. Please retry.\nType 'help' to view user manual.\n");
 			}
 
 		}
@@ -1058,7 +1097,7 @@ int main(int argc, char* argv[]){
 		}
 
 		else {
-			printf("Unrecognized command. Please retry.\n");
+			printf("Unrecognized command. Please retry.\nType 'help' to view user manual.\n");
 		}
 
 
