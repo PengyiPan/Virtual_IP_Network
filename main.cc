@@ -80,7 +80,7 @@ bool init_finished = false;
 bool update_table_changed = false;
 
 bool show_forwarding_info = true;
-bool forwarding_table_display = true;
+bool forwarding_table_display = false;
 
 uint16_t my_port;					 /* The unique port number for the node */
 
@@ -197,7 +197,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	if(interface_to_use->status == 0){
 		char str[50];
 		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
-		printf("\n=== Cannot send to %s. Interfaces %d down. ===\n\n",str,interface_to_use->unique_id);
+		printf("=== Cannot send to %s. Interfaces %d down. ===\n",str,interface_to_use->unique_id);
 		return 0;
 	}
 
@@ -480,7 +480,7 @@ void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 		char str[50];
 		inet_ntop(AF_INET, &new_next_hop_VIP_addr, str, INET_ADDRSTRLEN);
 
-		printf("****++++ Received RIP packet from %s\n",str);
+		//printf("****++++ Received RIP packet from %s\n",str);
 		//got response, update
 		pthread_mutex_lock(&ft_lock);
 		update_forwarding_table(RIP,new_next_hop_VIP_addr);
@@ -677,6 +677,7 @@ void* start_receive_service(void* a){
 	}
 
 	init_finished = true;
+	printf("Init finished\n");
 	triggered_RIP_request_sending();
 
 	/* now loop, receiving data and printing what we received */
@@ -814,11 +815,6 @@ void* node (void* a){
 		fprintf(stderr, "Error creating clean forwarding table thread\n");
 		return NULL;
 	}
-
-	//triggered event: update_forwarding_table();
-
-
-
 
 	return NULL;
 }
@@ -1029,7 +1025,7 @@ int main(int argc, char* argv[]){
 
 		}
 
-		else if (!strcmp(t,"show_forwarding_info")){
+		else if (!strcmp(t,"info")){
 			t = strtok(NULL, "");
 						//printf("message :%s\n", t);
 			if (!strcmp(t,"on")){
@@ -1041,7 +1037,7 @@ int main(int argc, char* argv[]){
 			}
 		}
 
-		else if (!strcmp(t,"routing_table_display")){
+		else if (!strcmp(t,"ftd")){
 			t = strtok(NULL, "");
 			if (!strcmp(t,"on")){
 				forwarding_table_display = true;
