@@ -288,8 +288,10 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 				if(my_forwarding_table[i]->interface_uid == next_hop_interface_id){
 					if(temp_cost == 16){
 						my_forwarding_table[i] -> time_last_updated = time(NULL);
+						if(my_forwarding_table[i] -> cost != 16){
+							update_table_changed = true;
+						}
 						my_forwarding_table[i] -> cost = 16;
-						update_table_changed = true;
 					}
 				}
 				return;
@@ -316,7 +318,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 			uint32_t temp_cost = ntohl(new_entry.cost);
 			if(temp_cost == 16){
 				new_FTE -> cost = 16;
-				update_table_changed = true;
+
 			}else{
 				new_FTE -> cost = temp_cost+1;
 			}
@@ -326,6 +328,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 			inet_ntop(AF_INET, &temp_ip_addr, str, INET_ADDRSTRLEN);
 			//printf("****New FTE added: %s interface: %d cost: %d\n",str,new_FTE -> interface_uid,new_FTE -> cost);
 
+			update_table_changed = true;
 			my_forwarding_table.push_back( new_FTE );
 
 
@@ -362,7 +365,7 @@ void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 		char str[50];
 		inet_ntop(AF_INET, &new_next_hop_VIP_addr, str, INET_ADDRSTRLEN);
 
-		//printf("****++++ Received RIP packet from %s\n",str);
+		printf("****++++ Received RIP packet from %s\n",str);
 		//got response, update
 		pthread_mutex_lock(&ft_lock);
 		update_forwarding_table(RIP,new_next_hop_VIP_addr);
