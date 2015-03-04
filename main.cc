@@ -142,7 +142,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 		interface* cur = my_interfaces[i];
 		if(in_addr_compare(des_VIP_addr,cur->my_VIP_addr)){
 			if(cur->status == 0){
-				printf("^^^ Cannot send. Interfaces down. ^^^\n");
+				printf("^^^ Cannot send to myself. Interfaces down. ^^^\n");
 				return 0;
 			}
 			printf("Sending msg to myself: %s\n",mes_to_send);
@@ -151,21 +151,36 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	}
 
 	/*Not sending to myself*/
-	interface* interface_to_use;
 	bool found = 0;
-	for(int i=0;i < my_forwarding_table.size();i++){
-		FTE* cur = my_forwarding_table[i];
-		if(in_addr_compare(des_VIP_addr,cur->remote_VIP_addr) && (cur->cost < 16)){// can be reach
+	interface* interface_to_use;
 
-			for(int j=0;j<my_interfaces.size();j++){
-				if(my_interfaces[j]->unique_id == cur->interface_uid){
-					interface_to_use = my_interfaces[j];
-					found = 1;
-					//printf("In send. Found next hop. Interface id: %d\n",cur->interface_uid);
+	/*Find interface based on interfaces table (sending RIP)*/
+	if(msg_is_RIP){
+		for(int j=0;j<my_interfaces.size();j++){
+			if(in_addr_compare(des_VIP_addr,my_interfaces[j]->remote_VIP_addr)){
+				interface_to_use = my_interfaces[j];
+				found = 1;
+				//printf("In send. Found next hop. Interface id: %d\n",cur->interface_uid);
+			}
+		}
+
+	}else{// msg is not RIP look through forwarding table
+	/*Find interface based on forwarding table (sending data)*/
+		for(int i=0;i < my_forwarding_table.size();i++){
+			FTE* cur = my_forwarding_table[i];
+			if(in_addr_compare(des_VIP_addr,cur->remote_VIP_addr) && (cur->cost < 16)){// can be reach
+
+				for(int j=0;j<my_interfaces.size();j++){
+					if(my_interfaces[j]->unique_id == cur->interface_uid){
+						interface_to_use = my_interfaces[j];
+						found = 1;
+						//printf("In send. Found next hop. Interface id: %d\n",cur->interface_uid);
+					}
 				}
 			}
 		}
 	}
+
 
 	if(!found){
 		char str[50];
@@ -177,7 +192,9 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 
 	// Check if interface is usable
 	if(interface_to_use->status == 0){
-		printf("\n=== Cannot send. Interfaces down. ===\n\n");
+		char str[50];
+		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
+		printf("\n=== Cannot send to %s. Interfaces %d down. ===\n\n",str,interface_to_use->unique_id);
 		return 0;
 	}
 
@@ -237,6 +254,7 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 }
 
 void triggered_RIP_response_sending(){
+	//should be locked when enter
 
 	for (int i = 0; i < my_interfaces.size(); i++){
 		interface* cur_interface = my_interfaces[i];
@@ -362,16 +380,13 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 				new_FTE -> time_last_updated = time(NULL);
 
 				my_forwarding_table[i] = new_FTE;
-				//update_table_changed = true;
+				update_table_changed = true;
 
 				return;
 
 				//  same cost.
 			} else if ((temp_cost + 1 == my_forwarding_table[i]->cost)){
 
-				if(my_forwarding_table[i] -> interface_uid != next_hop_interface_id){
-					//update_table_changed = true;
-				}
 				my_forwarding_table[i] -> time_last_updated = time(NULL);
 				my_forwarding_table[i] -> interface_uid = next_hop_interface_id;
 
@@ -845,10 +860,16 @@ int up_interface(int interface_id){
 
 	struct in_addr remote_addr;
 	bool found = false;
+	interface* target_interface;
 
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
 			remote_addr = my_interfaces[i]-> remote_VIP_addr;
+			target_interface = my_interfaces[i];
+			if(target_interface->status == 1){
+				printf("\n+++ Interface %d is already up +++\n\n",interface_id);
+				return 0;
+			}
 			my_interfaces[i]->status = 1; //set to up
 			printf("\n+++Interface %d up.+++\n\n", my_interfaces[i]->unique_id);
 			found = true;
@@ -859,6 +880,8 @@ int up_interface(int interface_id){
 		printf("Interface %d not found.Cannot up\n", interface_id);
 		return 0;
 	}
+
+
 
 	//Update forwarding table
 	for(int k=0;k<my_forwarding_table.size();k++){
@@ -874,12 +897,18 @@ int up_interface(int interface_id){
 
 int down_interface(int interface_id){
 	struct in_addr remote_addr;
+	interface* target_interface;
 
 	bool found = false;
 
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
-			my_interfaces[i]->status = 0;
+			target_interface = my_interfaces[i];
+			if(target_interface->status != 1){
+				printf("\n+++ Interface %d is already down +++\n\n",interface_id);
+				return 0;
+			}
+			my_interfaces[i]->status = 0; // set to down
 			remote_addr = my_interfaces[i]-> remote_VIP_addr;
 			printf("\n+++Interface %d down.+++\n\n", my_interfaces[i]->unique_id);
 			found = true;
@@ -900,6 +929,7 @@ int down_interface(int interface_id){
 	}
 
 	//let other not downed interface know faster;
+	//nothing will be sent through the downed interface
 	triggered_RIP_response_sending();
 	return 0;
 }
@@ -958,7 +988,7 @@ int main(int argc, char* argv[]){
 		}
 
 		else if (!strcmp(t,"down")){
-			printf("command is %s\n", t);
+			//printf("command is %s\n", t);
 			t = strtok(NULL, " ");
 			int down_id = atoi(t);
 			//printf("command is %s, taking down interface id: %d \n", t, down_id);
