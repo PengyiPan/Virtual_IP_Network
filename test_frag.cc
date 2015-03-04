@@ -61,7 +61,7 @@ void segmentation(char msg[],int msg_length){
 
 		memcpy(&(ip_packet_to_send->msg),msg,msg_length);
 
-		//
+		//send packet
 	}
 
 
