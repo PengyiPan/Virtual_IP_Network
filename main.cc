@@ -24,59 +24,7 @@
 
 using namespace std;
 
-uint16_t my_port;
 
-struct interface_t{
-	uint16_t unique_id;
-	uint16_t my_port;
-	uint16_t remote_port;
-	struct in_addr my_VIP_addr;
-	struct in_addr remote_VIP_addr;
-	int status; //1 is up and 0 is down
-};
-typedef struct interface_t interface;
-
-struct forwarding_table_entry{
-	struct in_addr remote_VIP_addr;
-	uint16_t interface_uid;
-	int cost;
-	time_t time_last_updated;//time_to_live;
-};
-typedef struct forwarding_table_entry FTE;
-
-/*The packet that will be encapsulated in IP packet as payload*/
-struct entry_t{
-	uint32_t cost;
-	uint32_t address;
-};
-typedef struct entry_t entry;
-
-
-struct RIP_packet{
-	uint16_t command;
-	uint16_t num_entries;
-	entry entries[64];
-};
-
-typedef struct RIP_packet RIP_packet;
-
-/*The packet that we send using UDP as the link layer*/
-
-struct IP_packet {
-	struct ip ip_header;
-	char msg[IP_PACKET_MAX_PAYLOAD];
-};
-
-
-
-int ifconfig();
-int routes(bool print_ttl);
-void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
-void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
-struct RIP_packet* create_RIP_response_packet(interface* cur_interface);
-
-vector<interface*> my_interfaces(0);
-vector<FTE*> my_forwarding_table(0);
 
 /*Compare two in_addr struct, return true if the addr is the same*/
 bool in_addr_compare(struct in_addr addr1,struct in_addr addr2){
