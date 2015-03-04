@@ -945,7 +945,26 @@ int down_interface(int interface_id){
 	return 0;
 }
 
-/* HELPER FUNTIONS */
+void display_user_manual(){
+	cout<<"\n ************* USER MANUAL *************\n"<<endl;
+	cout<< " ifconfig\t  - prints info about each interface" <<endl;
+	cout<< " routes  \t  - print info about routes to each known destination" <<endl;
+	cout<< " down    \t  - ‘down 1’ down interface 1" <<endl;
+	cout<< " up      \t  - ‘up 1’ up interface 1" <<endl;
+	cout<< " send    \t  - ‘send 10.10.168.73 hello’ send messageto IP addr" <<endl;
+
+	cout<< "\n disinfo \t - ‘disinfo on’/‘disinfo off’ turn on/off run time info" <<endl;
+	cout<< "\tinfo includes:" <<endl;
+	cout<< "\t\tnotification when forwarding a msg packet" <<endl;
+	cout<< "\t\tnotification when cannot send/reach" <<endl;
+	cout<< "\t\tnotification when received a RIP packet" <<endl;
+
+	cout<< "\n dft     \t - ‘dft on’/‘dft off’ turn on/off display_forwarding_table on the fly" <<endl;
+
+	cout<< "\n kill    \t - kill the current process. (= ctr+C)" <<endl;
+
+	cout<<"\n ********** END OF USER MANUAL **********"<<endl;
+}
 
 
 /* END OF HELPER FUNTIONS */
@@ -1090,6 +1109,10 @@ int main(int argc, char* argv[]){
 				printf("Unrecognized command. Please retry.\nType 'help' to view user manual.\n");
 			}
 
+		}
+
+		else if (!strcmp(t,"help")){
+			display_user_manual();
 		}
 
 		else if (!strcmp(t,"kill")){
