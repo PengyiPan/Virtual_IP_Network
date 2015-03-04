@@ -79,8 +79,8 @@ pthread_mutex_t ft_lock;			 /* The lock for forwarding table */
 bool init_finished = false;
 bool update_table_changed = false;
 
-bool show_forwarding_info = true;
-bool forwarding_table_display = true;
+bool show_forwarding_info = false;
+bool forwarding_table_display = false;
 
 uint16_t my_port;					 /* The unique port number for the node */
 
