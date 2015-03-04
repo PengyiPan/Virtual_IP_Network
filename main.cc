@@ -953,6 +953,8 @@ void display_user_manual(){
 	cout<< " up      \t  - ‘up 1’ up interface 1" <<endl;
 	cout<< " send    \t  - ‘send 10.10.168.73 hello’ send messageto IP addr" <<endl;
 
+	cout<< "\n mtu     \t  - ‘mtu 1 700’ set mtu for link 1 to 700 byte" <<endl;
+
 	cout<< "\n disinfo \t - ‘disinfo on’/‘disinfo off’ turn on/off run time info" <<endl;
 	cout<< "\tinfo includes:" <<endl;
 	cout<< "\t\tnotification when forwarding a msg packet" <<endl;
@@ -1108,6 +1110,28 @@ int main(int argc, char* argv[]){
 			} else {
 				printf("Unrecognized command. Please retry.\nType 'help' to view user manual.\n");
 			}
+
+		}
+
+		else if (!strcmp(t,"mtu")){
+			t = strtok(NULL, " ");
+
+			if (t == NULL){
+				printf("WARNING: Missing two arguments after 'mtu'\nType 'help' to view user manual.\n");
+				continue;
+			}
+
+			int link = atoi(t);
+
+			if (t == NULL){
+				printf("WARNING: Missing an argument after 'mtu'\nType 'help' to view user manual.\n");
+				continue;
+			}
+
+			int mtu = atoi(t);
+
+			//set MAX_MSG_LENGTH to mtu. currently MAX_MSG_LENGTH = 1400
+			//invoke fragmentation
 
 		}
 
