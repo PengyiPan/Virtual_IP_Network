@@ -32,6 +32,7 @@ int u_socket;                         /* our socket */
 pthread_mutex_t ft_lock;
 
 bool init_finished = false;
+bool update_table_changed = false;
 
 uint16_t my_port;
 
@@ -41,7 +42,7 @@ struct interface_t{
 	uint16_t remote_port;
 	struct in_addr my_VIP_addr;
 	struct in_addr remote_VIP_addr;
-	int status;
+	int status; //1 is up and 0 is down
 };
 typedef struct interface_t interface;
 
@@ -79,7 +80,7 @@ struct IP_packet {
 
 
 int ifconfig();
-int routes();
+int routes(bool print_ttl);
 void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
 void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr);
 struct RIP_packet* create_RIP_response_packet(interface* cur_interface);
@@ -101,12 +102,18 @@ bool in_addr_compare(struct in_addr addr1,struct in_addr addr2){
 	}
 }
 
+
+
 int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_encapsulated,bool msg_is_RIP)
 {
 
 	for(int i=0;i<my_interfaces.size();i++){
 		interface* cur = my_interfaces[i];
 		if(in_addr_compare(des_VIP_addr,cur->my_VIP_addr)){
+			if(cur->status == 0){
+				printf("^^^ Cannot send. Interfaces down. ^^^\n");
+				return 0;
+			}
 			printf("Sending msg to myself: %s\n",mes_to_send);
 			return 0;
 		}
@@ -132,10 +139,16 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	if(!found){
 		char str[50];
 		inet_ntop(AF_INET, &des_VIP_addr, str, INET_ADDRSTRLEN);
-		printf("%s cannot be reached\n",str);
+		printf("^^^ %s cannot be reached! ^^^\n",str);
 		return 0;
 	}
 	/*Found which interface to use*/
+
+	// Check if interface is usable
+	if(interface_to_use->status == 0){
+		printf("\n=== Cannot send. Interfaces down. ===\n\n");
+		return 0;
+	}
 
 	if(!msg_encapsulated){
 		/*Msg not encapsulated, need to create IP packet*/
@@ -192,6 +205,30 @@ int send(struct in_addr des_VIP_addr,char* mes_to_send,int msg_length,bool msg_e
 	return 0;
 }
 
+void triggered_RIP_response_sending(){
+
+	for (int i = 0; i < my_interfaces.size(); i++){
+		interface* cur_interface = my_interfaces[i];
+
+		RIP_packet* RIP_packet_tosend = create_RIP_response_packet(cur_interface);
+
+		send( (my_interfaces[i]->remote_VIP_addr), (char*) RIP_packet_tosend, sizeof(struct RIP_packet),false,true);
+
+	}
+}
+
+void triggered_RIP_request_sending(){
+
+	struct RIP_packet* RIP_request_packet = new struct RIP_packet;
+	uint16_t temp_command = 1;
+	RIP_request_packet ->command  = htons(temp_command);
+
+	for (int i = 0; i< my_interfaces.size() ; i++){
+		send( (my_interfaces[i]->remote_VIP_addr), (char*) RIP_request_packet, sizeof(struct RIP_packet),false,true);
+	}
+
+}
+
 void forward_or_print(IP_packet* packet){
 
 
@@ -216,9 +253,9 @@ void forward_or_print(IP_packet* packet){
 	char str2[50];
 	inet_ntop(AF_INET, &des_addr, str2, INET_ADDRSTRLEN);
 
-	printf("=======Forwarding to %s==========\n",str2);
+	printf("\n=======Forwarding to %s==========\n",str2);
 
-	printf("===Forwarder ip_sum: %d ttl: %d\n",ip->ip_sum,ip->ip_ttl);
+	printf("===Forwarder ip_sum: %d ttl: %d\n\n",ip->ip_sum,ip->ip_ttl);
 	send(des_addr, (char*)packet,sizeof(struct IP_packet),true,false);
 }
 
@@ -294,14 +331,18 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 				new_FTE -> time_last_updated = time(NULL);
 
 				my_forwarding_table[i] = new_FTE;
+				//update_table_changed = true;
 
 				return;
 
 				//  same cost.
 			} else if ((temp_cost + 1 == my_forwarding_table[i]->cost)){
 
-					my_forwarding_table[i] -> time_last_updated = time(NULL);
-					my_forwarding_table[i] -> interface_uid = next_hop_interface_id;
+				if(my_forwarding_table[i] -> interface_uid != next_hop_interface_id){
+					//update_table_changed = true;
+				}
+				my_forwarding_table[i] -> time_last_updated = time(NULL);
+				my_forwarding_table[i] -> interface_uid = next_hop_interface_id;
 
 				return;
 
@@ -310,6 +351,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 					if(temp_cost == 16){
 						my_forwarding_table[i] -> time_last_updated = time(NULL);
 						my_forwarding_table[i] -> cost = 16;
+						update_table_changed = true;
 					}
 				}
 				return;
@@ -336,6 +378,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 			uint32_t temp_cost = ntohl(new_entry.cost);
 			if(temp_cost == 16){
 				new_FTE -> cost = 16;
+				update_table_changed = true;
 			}else{
 				new_FTE -> cost = temp_cost+1;
 			}
@@ -343,7 +386,7 @@ void merge_route(entry new_entry , int next_hop_interface_id, in_addr next_hop_V
 
 			char str[50];
 			inet_ntop(AF_INET, &temp_ip_addr, str, INET_ADDRSTRLEN);
-			printf("****New FTE added: %s interface: %d cost: %d\n",str,new_FTE -> interface_uid,new_FTE -> cost);
+			//printf("****New FTE added: %s interface: %d cost: %d\n",str,new_FTE -> interface_uid,new_FTE -> cost);
 
 			my_forwarding_table.push_back( new_FTE );
 
@@ -381,7 +424,7 @@ void RIP_packet_handler(RIP_packet* RIP, struct in_addr new_next_hop_VIP_addr){
 		char str[50];
 		inet_ntop(AF_INET, &new_next_hop_VIP_addr, str, INET_ADDRSTRLEN);
 
-		printf("****++++ Received RIP packet from %s\n",str);
+		//printf("****++++ Received RIP packet from %s\n",str);
 		//got response, update
 		pthread_mutex_lock(&ft_lock);
 		update_forwarding_table(RIP,new_next_hop_VIP_addr);
@@ -415,6 +458,12 @@ void update_forwarding_table(RIP_packet* RIP, struct in_addr new_next_hop_VIP_ad
 	for (i = 0 ; i < numNewRoutes ; i++){
 		merge_route( RIP->entries[i] , next_hop_interface_id,  new_next_hop_VIP_addr );
 	}
+
+	//send to neighbors new RIP packet if table changed
+	if(update_table_changed){
+		triggered_RIP_response_sending();
+	}
+	update_table_changed = false;
 
 }
 
@@ -479,27 +528,6 @@ void* periodic_send_rip_response(void* a){
 
 			RIP_packet* RIP_packet_tosend = create_RIP_response_packet(cur_interface);
 
-			//send response
-
-//			//debug
-//
-//			uint16_t numNewRoutes = ntohs(RIP_packet_tosend -> num_entries);
-//			printf("\n^^^^^^^^ Sent RIP PACKET: ^^^^^^^^^^^^\n",RIP_packet_tosend);
-//			for(int k=0;k<numNewRoutes;k++){
-//				entry e = RIP_packet_tosend->entries[k];
-//				struct in_addr addr3;
-//				addr3.s_addr = ntohl(e.address);
-//				char str[50];
-//				inet_ntop(AF_INET, &addr3, str, INET_ADDRSTRLEN);
-//
-//				printf("%s cost: %d\n",str,ntohl(e.cost));
-//			}
-//			printf("^^^^^^^^^^^^End of RIP packet\n\n");
-//
-//
-//
-//
-//			//debug
 			send( (my_interfaces[i]->remote_VIP_addr), (char*) RIP_packet_tosend, sizeof(struct RIP_packet),false,true);
 
 		}
@@ -512,20 +540,19 @@ void* periodic_send_rip_response(void* a){
 
 void* clean_forwarding_table(void* a){
 	/* periodically: check */
-	//printf("in clean thread  \n");
+
 	while(!init_finished){
 		sleep(1);
 	}
 
 	while(1){
 		pthread_mutex_lock(&ft_lock);
-		//printf("in clean thread while loop \n");
 
 		vector<FTE*>::iterator it = my_forwarding_table.begin();
-		printf("\n======================================\n");
-		printf("Forwarding table size: %zu\n",my_forwarding_table.size());
-		routes();
-		printf("======================================\n\n");
+		printf("\n=============START=========================\n");
+		printf("Forwarding table size: %zu\n",my_forwarding_table.size()-my_interfaces.size());
+		routes(true);
+		printf("===============END=======================\n\n");
 
 		  while(it != my_forwarding_table.end()) {
 
@@ -591,16 +618,33 @@ void* start_receive_service(void* a){
 	}
 
 	init_finished = true;
+	triggered_RIP_request_sending();
 
 	/* now loop, receiving data and printing what we received */
 	while (1) {
-		printf("waiting on port %d\n", my_port);
+		//printf("waiting on port %d\n", my_port);
 		recvlen = recvfrom(u_socket, buf, RECEIVE_BUFSIZE, 0, (struct sockaddr *)&remaddr, &addrlen);
-		printf("received %d bytes\n", recvlen);
+		//printf("received %d bytes\n", recvlen);
 		if (recvlen > 0) {
 			buf[recvlen] = 0;
 
-			handle_packet((IP_packet*)&buf);
+			// Check interface availability
+			uint16_t remote_port = ntohs(remaddr.sin_port);
+			bool rcv_interface_up = true;
+
+			for(int i=0;i<my_interfaces.size();i++){
+				if(my_interfaces[i]->remote_port == remote_port){
+					if(my_interfaces[i]->status == 0){//interface down, should not receive packet
+						rcv_interface_up = false;
+						//printf("\n!!!!!!Interface down, dropped packet\n");
+					}
+				}
+			}
+
+			//If interface is down, drop the packet
+			if(rcv_interface_up){
+				handle_packet((IP_packet*)&buf);
+			}
 
 		}
 	}
@@ -655,6 +699,7 @@ void read_in(){
 			new_FTE -> cost = 1;
 			new_FTE -> time_last_updated = time(NULL);  //set to current time
 
+			//printf("Added FTE interface: %d IP: %s\n",line_count,temp_remote_VIP_addr_str.c_str());
 			my_forwarding_table.push_back(new_FTE);
 
 			FTE* new_FTE_to_myself = new FTE;
@@ -739,7 +784,7 @@ int ifconfig(){
 	return 0;
 }
 
-int routes(){
+int routes(bool print_ttl){
 	for(int i =0; i< my_forwarding_table.size();i++){
 		FTE* cur = my_forwarding_table[i];
 
@@ -747,7 +792,14 @@ int routes(){
 			char str_temp[50];
 			inet_ntop(AF_INET, &(cur->remote_VIP_addr), str_temp, INET_ADDRSTRLEN);
 
-			printf("%s %d %d\n", str_temp ,cur->interface_uid,cur->cost);
+			if(print_ttl){
+				int seconds = difftime(time(NULL), cur->time_last_updated);
+				if(seconds>12) seconds = 12;
+				printf("%s %d %d      (last update %d s ago)\n", str_temp ,cur->interface_uid,cur->cost,seconds);
+			}else{
+				printf("%s %d %d\n", str_temp ,cur->interface_uid,cur->cost);
+			}
+
 		}
 
 
@@ -756,55 +808,65 @@ int routes(){
 }
 
 int up_interface(int interface_id){
-	struct in_addr addr_to_add;
+
+	struct in_addr remote_addr;
 	bool found = false;
 
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
-			addr_to_add = my_interfaces[i]-> remote_VIP_addr;
-			my_interfaces[i]->status = 1;
-			printf("Interface %d up.\n", my_interfaces[i]->unique_id);
+			remote_addr = my_interfaces[i]-> remote_VIP_addr;
+			my_interfaces[i]->status = 1; //set to up
+			printf("\n+++Interface %d up.+++\n\n", my_interfaces[i]->unique_id);
 			found = true;
 		}
 	}
-	if(found && (my_forwarding_table.size()<64 )){
-		FTE* new_FTE = new FTE;
-		new_FTE -> remote_VIP_addr = addr_to_add;
-		new_FTE -> interface_uid = interface_id;
-		new_FTE -> cost = 1;
-		new_FTE -> time_last_updated = time(NULL);
-
-		my_forwarding_table.push_back(new_FTE);
-	}
 
 	if(!found){
-		printf("Interface %d not found.\n", interface_id);
+		printf("Interface %d not found.Cannot up\n", interface_id);
+		return 0;
 	}
+
+	//Update forwarding table
+	for(int k=0;k<my_forwarding_table.size();k++){
+		if(in_addr_compare(my_forwarding_table[k]->remote_VIP_addr,remote_addr)){
+			my_forwarding_table[k]->cost = 1;
+			break;
+		}
+	}
+
+	triggered_RIP_response_sending();
 	return 0;
 }
 
 int down_interface(int interface_id){
-	struct in_addr addr_to_erase;
+	struct in_addr remote_addr;
 
 	bool found = false;
 
 	for(int i =0; i< my_interfaces.size();i++){
 		if(my_interfaces[i]->unique_id == interface_id){
 			my_interfaces[i]->status = 0;
-			addr_to_erase = my_interfaces[i]-> remote_VIP_addr;
-			printf("Interface %d down.\n", my_interfaces[i]->unique_id);
+			remote_addr = my_interfaces[i]-> remote_VIP_addr;
+			printf("\n+++Interface %d down.+++\n\n", my_interfaces[i]->unique_id);
 			found = true;
 		}
 	}
 
-	for (int j = 0; j< my_forwarding_table.size(); j++){
-		//delete FTE from forwarding table if using this interface
-		if (my_forwarding_table[j]->interface_uid == interface_id ){
-			my_forwarding_table.erase(my_forwarding_table.begin()+j);
+	if(!found) {
+		printf("Interface %d not found.Cant down\n", interface_id);
+		return 0;
+	}
+
+	//Update forwarding table
+	for(int k=0;k<my_forwarding_table.size();k++){
+		if(in_addr_compare(my_forwarding_table[k]->remote_VIP_addr,remote_addr)){
+			my_forwarding_table[k]->cost = 16;
+			break;
 		}
 	}
 
-	if(!found) { printf("Interface %d not found.\n", interface_id); }
+	//let other not downed interface know faster;
+	triggered_RIP_response_sending();
 	return 0;
 }
 
@@ -830,8 +892,6 @@ int main(int argc, char* argv[]){
 	string mystr;
 
 	while(1){
-		//printf ("Enter user command: ");
-		//scanf ("%s", command);
 		getline (cin, mystr);
 
 		std::vector<char> writable(mystr.begin(), mystr.end());
@@ -843,16 +903,13 @@ int main(int argc, char* argv[]){
 		t = strtok(command, " ");
 
 		if (!strcmp(t,"ifconfig")){
-			// config
-			//printf("command is %s\n", t);
+
 			ifconfig();
 
 		}
 
 		else if (!strcmp(t,"routes")){
-			// print out routes
-			//printf("command is %s\n", t);
-			routes();
+			routes(false);
 
 		}
 
