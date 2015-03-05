@@ -81,7 +81,7 @@ bool update_table_changed = false;
 
 
 bool display_runtime_info = false;
-bool display_forwarding_table = false;
+bool display_forwarding_table = true;
 
 uint16_t my_port;					 /* The unique port number for the node */
 
