@@ -1,3 +1,5 @@
+Virtual IP Network using UDP as the link layer. dynamic routing. forwarding with RIP.
+
 ————————————————————————————————————————————————————————————————————————————————————————
 
 Name: 
